@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
@@ -20,9 +21,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'core',
+    'akun',
+    'log_aktivitas',
 ]
+
+AUTH_USER_MODEL = 'akun.Pengguna'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -54,8 +61,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'sipora_be.wsgi.application'
-
-PRODUCTION = os.getenv('PRODUCTION', 'False') == 'True'
 
 if PRODUCTION:
     DATABASES = {
@@ -115,8 +120,19 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
     'DEFAULT_RENDERER_CLASSES': [
         'core.renderers.CoreJSONRenderer',
     ],
     'EXCEPTION_HANDLER': 'core.exceptions.core_exception_handler',
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }

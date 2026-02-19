@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -15,4 +15,6 @@ def api_status(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', api_status),
+    path('api/akun/', include('akun.urls')),
+    path('api/log/', include('log_aktivitas.urls')),
 ]
