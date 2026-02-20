@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
 SECRET_KEY = 'django-insecure-u%c-tyv#(=jq+jd_2h=yjpexaqzlou7343s7e$!_e%_$m@8f$2'
 
@@ -33,8 +33,8 @@ AUTH_USER_MODEL = 'akun.Pengguna'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'core.middleware.TimingMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -83,6 +83,8 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+print(f"[STARTUP] PRODUCTION={PRODUCTION}, DB_ENGINE={DATABASES['default']['ENGINE']}")
 
 AUTH_PASSWORD_VALIDATORS = [
     {

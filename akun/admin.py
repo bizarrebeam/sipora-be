@@ -5,8 +5,10 @@ from .models import Pengguna
 class PenggunaAdmin(UserAdmin):
     model = Pengguna
     fieldsets = UserAdmin.fieldsets + (
-        ('Informasi Tambahan', {'fields': ('role', 'nisn', 'nama_lengkap')}),
+        ('Informasi Tambahan', {'fields': ('role', 'nisn', 'nuptk', 'nama_lengkap', 'kelas', 'mata_pelajaran')}),
     )
-    list_display = ['username', 'email', 'nama_lengkap', 'role', 'is_staff']
+    list_display = ['username', 'nama_lengkap', 'role', 'nisn', 'nuptk', 'kelas', 'is_staff']
+    list_filter = ['role', 'kelas']
+    search_fields = ['username', 'nama_lengkap', 'nisn', 'nuptk']
 
 admin.site.register(Pengguna, PenggunaAdmin)
