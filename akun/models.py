@@ -1,7 +1,13 @@
 import uuid
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
+from django.conf import settings
+from django.utils import timezone
 from datetime import date
+
+class ActiveUserManager(UserManager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
 
 
 class Pengguna(AbstractUser):
@@ -24,6 +30,30 @@ class Pengguna(AbstractUser):
     nama_lengkap = models.CharField(max_length=255)
     kelas = models.CharField(max_length=5, choices=KELAS_CHOICES, null=True, blank=True)
     mata_pelajaran = models.CharField(max_length=255, null=True, blank=True)
+
+    # WBS Soft Delete Logic for Acccount Deactivations
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        null=True, 
+        blank=True, 
+        on_delete=models.SET_NULL, 
+        related_name='+'
+    )
+
+    objects = ActiveUserManager()
+    all_objects = UserManager()
+
+    def soft_delete(self, user=None):
+        self.is_active = False # Additional deactivation flag
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.deleted_by = user
+        self.save()
+
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     def __str__(self):
         return f"{self.username} - {self.role}"

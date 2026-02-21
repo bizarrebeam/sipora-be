@@ -15,7 +15,7 @@ from .serializers import (
 )
 from .models import Pengguna
 from .decorators import role_required
-from log_aktivitas.helpers import catat_log
+from log_aktivitas.utils import catat_log
 
 
 class RegisterSiswaView(APIView):
@@ -24,7 +24,15 @@ class RegisterSiswaView(APIView):
     def post(self, request):
         serializer = RegisterSiswaSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
+            ip = request.META.get('REMOTE_ADDR')
+            catat_log(
+                user=user,
+                aksi='BUAT_AKUN',
+                deskripsi=f'Akun Siswa dibuat untuk {user.nama_lengkap} ({user.nisn}).',
+                modul='akun',
+                ip_address=ip
+            )
             return Response({"message": "Akun siswa berhasil dibuat."}, status=201)
         return Response(serializer.errors, status=400)
 
@@ -77,12 +85,22 @@ class EditProfilView(APIView):
     def put(self, request):
         serializer = EditProfilSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
+            old_kelas = request.user.kelas
+            
             serializer.update(request.user, serializer.validated_data)
+            
+            new_kelas = request.user.kelas
+            
+            diff_msg = ""
+            if old_kelas != new_kelas:
+                diff_msg += f"kelas='{old_kelas or '-'}' → '{new_kelas or '-'}'. "
+                
             catat_log(
-                request=request,
-                aksi='Edit Profil',
-                deskripsi=f'{request.user.nama_lengkap} mengubah profil.',
-                modul='akun'
+                user=request.user,
+                aksi='EDIT_PROFIL',
+                deskripsi=f'Profil diedit. Perubahan: {diff_msg}'.strip(),
+                modul='akun',
+                ip_address=request.META.get('REMOTE_ADDR')
             )
             return Response({
                 "message": "Profil berhasil diperbarui.",
@@ -98,12 +116,7 @@ class UbahPasswordView(APIView):
         serializer = UbahPasswordSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            catat_log(
-                request=request,
-                aksi='Ubah Password',
-                deskripsi=f'{request.user.nama_lengkap} mengubah password.',
-                modul='akun'
-            )
+            # WBS Standard: Password changes are not logged in Audit Log to avoid spam.
             return Response({"message": "Password berhasil diubah."})
         return Response(serializer.errors, status=400)
 
@@ -125,10 +138,11 @@ class AdminBuatAkunView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             catat_log(
-                request=request,
-                aksi='Buat Akun',
-                deskripsi=f'Admin membuat akun {role_type}: {user.nama_lengkap}',
-                modul='akun'
+                user=request.user,
+                aksi='BUAT_AKUN',
+                deskripsi=f'Admin membuat akun {role_type}: {user.nama_lengkap} ({user.nuptk})',
+                modul='akun',
+                ip_address=request.META.get('REMOTE_ADDR')
             )
             label = 'Guru BK' if role_type == 'guru_bk' else 'Guru'
             return Response({"message": f"Akun {label} berhasil dibuat."}, status=201)

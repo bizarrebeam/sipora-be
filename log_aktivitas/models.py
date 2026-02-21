@@ -12,7 +12,7 @@ class LogAktivitas(models.Model):
     modul = models.CharField(max_length=100)
 
     def save(self, *args, **kwargs):
-        if self.pk:
+        if not self._state.adding:
             return
         super().save(*args, **kwargs)
 

@@ -16,5 +16,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', api_status),
     path('api/akun/', include('akun.urls')),
-    path('api/log/', include('log_aktivitas.urls')),
+    path('api/logs/', include('log_aktivitas.urls')),
 ]
