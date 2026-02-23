@@ -9,6 +9,7 @@ from .views import (
     UbahPasswordView,
     AdminBuatAkunView,
     AdminDaftarAkunView,
+    CookieTokenRefreshView,
 )
 
 urlpatterns = [
@@ -20,5 +21,5 @@ urlpatterns = [
     path('me/password/', UbahPasswordView.as_view()),
     path('admin/buat/', AdminBuatAkunView.as_view()),
     path('admin/daftar/', AdminDaftarAkunView.as_view()),
-    path('token/refresh/', TokenRefreshView.as_view()),
+    path('token/refresh/', CookieTokenRefreshView.as_view()),
 ]
