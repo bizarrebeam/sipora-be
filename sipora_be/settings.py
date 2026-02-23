@@ -11,7 +11,11 @@ SECRET_KEY = 'django-insecure-u%c-tyv#(=jq+jd_2h=yjpexaqzlou7343s7e$!_e%_$m@8f$2
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOST_ENV = os.getenv('ALLOWED_HOSTS')
+if ALLOWED_HOST_ENV:
+    ALLOWED_HOSTS = ALLOWED_HOST_ENV.split(',')
+else:
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"] 
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -111,10 +115,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
+CORS_ORIGIN_ENV = os.getenv('CORS_ALLOWED_ORIGINS')
+if CORS_ORIGIN_ENV:
+    CORS_ALLOWED_ORIGINS = CORS_ORIGIN_ENV.split(',')
+else:
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 
