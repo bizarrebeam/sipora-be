@@ -10,9 +10,11 @@ from .views import (
     AdminBuatAkunView,
     AdminDaftarAkunView,
     CookieTokenRefreshView,
+    SeedDatabaseView,
 )
 
 urlpatterns = [
+    path('seed/', SeedDatabaseView.as_view()),
     path('register/', RegisterSiswaView.as_view()),
     path('login/', LoginView.as_view()),
     path('logout/', LogoutView.as_view()),

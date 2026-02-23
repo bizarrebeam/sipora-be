@@ -20,6 +20,25 @@ from .decorators import role_required
 from log_aktivitas.utils import catat_log
 
 
+from django.core.management import call_command
+
+class SeedDatabaseView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            call_command('flush', interactive=False)
+            call_command('seed_users')
+            bk = Pengguna.objects.filter(role='guru_bk').first()
+            return Response({
+                "message": "Database berhasil direset dan diseed.",
+                "bk_username": bk.username if bk else None,
+                "bk_nuptk": bk.nuptk if bk else None
+            })
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+
 class RegisterSiswaView(APIView):
     permission_classes = [AllowAny]
 
@@ -238,7 +257,7 @@ class AdminBuatAkunView(APIView):
 class AdminDaftarAkunView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required('kemahasiswaan')
+    @role_required('kemahasiswaan', 'guru_bk')
     def get(self, request):
         search = request.query_params.get('search', '').strip()
 
@@ -252,6 +271,18 @@ class AdminDaftarAkunView(APIView):
             )
 
         siswa_qs = base_qs.filter(role='siswa').order_by('nama_lengkap')
+        
+        # Jika guru_bk, hanya kembalikan daftar siswa
+        if request.user.role == 'guru_bk':
+            return Response({
+                "siswa": {
+                    "total": siswa_qs.count(),
+                    "data": PenggunaSerializer(siswa_qs, many=True).data,
+                },
+                "guru": { "total": 0, "data": [] },
+                "guru_bk": { "total": 0, "data": [] },
+            })
+
         guru_qs = base_qs.filter(role='guru').order_by('nama_lengkap')
         guru_bk_qs = base_qs.filter(role='guru_bk').order_by('nama_lengkap')
 
