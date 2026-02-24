@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
+from django.conf import settings
+
 from .serializers import (
     RegisterSiswaSerializer,
     AdminBuatGuruSerializer,
@@ -16,6 +18,25 @@ from .serializers import (
 from .models import Pengguna
 from .decorators import role_required
 from log_aktivitas.utils import catat_log
+
+
+from django.core.management import call_command
+
+class SeedDatabaseView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            call_command('flush', interactive=False)
+            call_command('seed_users')
+            bk = Pengguna.objects.filter(role='guru_bk').first()
+            return Response({
+                "message": "Database berhasil direset dan diseed.",
+                "bk_username": bk.username if bk else None,
+                "bk_nuptk": bk.nuptk if bk else None
+            })
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 
 class RegisterSiswaView(APIView):
@@ -43,7 +64,32 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            return Response(serializer.validated_data)
+            data = serializer.validated_data
+            
+            access_token = data.pop('access')
+            refresh_token = data.pop('refresh')
+            
+            response = Response(data)
+            
+            response.set_cookie(
+                key=getattr(settings, 'AUTH_COOKIE', 'access_token'),
+                value=access_token,
+                expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'],
+                secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
+                httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
+                samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+            )
+            
+            response.set_cookie(
+                key=getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token'),
+                value=refresh_token,
+                expires=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'],
+                secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
+                httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
+                samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+            )
+            
+            return response
         return Response(serializer.errors, status=400)
 
 
@@ -51,24 +97,83 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        import time
         try:
-            t0 = time.perf_counter()
-            refresh_token = request.data.get("refresh")
+            cookie_name = getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token')
+            refresh_token = request.COOKIES.get(cookie_name)
+            
             if not refresh_token:
                 return Response({"detail": "Refresh token diperlukan."}, status=400)
 
-            t1 = time.perf_counter()
             token = RefreshToken(refresh_token)
-            t2 = time.perf_counter()
             token.blacklist()
-            t3 = time.perf_counter()
 
-            print(f"[LOGOUT DETAIL] parse_data: {(t1-t0)*1000:.0f}ms | RefreshToken(): {(t2-t1)*1000:.0f}ms | blacklist(): {(t3-t2)*1000:.0f}ms | TOTAL: {(t3-t0)*1000:.0f}ms")
-
-            return Response({"message": "Logout berhasil."})
+            response = Response({"message": "Logout berhasil."})
+            
+            response.delete_cookie(getattr(settings, 'AUTH_COOKIE', 'access_token'))
+            response.delete_cookie(getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token'))
+            
+            return response
         except Exception:
             return Response({"detail": "Token tidak valid atau sudah kedaluwarsa."}, status=400)
+
+
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        cookie_name = getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token')
+        refresh_token = request.COOKIES.get(cookie_name)
+        
+        if not refresh_token:
+            return Response({"detail": "Refresh token tidak ditemukan di cookie."}, status=401)
+            
+        try:
+            token = RefreshToken(refresh_token)
+            
+            access_token = str(token.access_token)
+            
+            if getattr(settings.SIMPLE_JWT, 'ROTATE_REFRESH_TOKENS', False):
+                user_id = token.get('user_id')
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user = User.objects.get(id=user_id)
+                new_token_set = RefreshToken.for_user(user)
+                access_token = str(new_token_set.access_token)
+                new_refresh_token = str(new_token_set)
+                
+                if getattr(settings.SIMPLE_JWT, 'BLACKLIST_AFTER_ROTATION', False):
+                    try:
+                        token.blacklist()
+                    except:
+                        pass
+            else:
+                new_refresh_token = refresh_token
+                
+            response = Response({"message": "Token berhasil diperbarui."})
+            
+            response.set_cookie(
+                key=getattr(settings, 'AUTH_COOKIE', 'access_token'),
+                value=access_token,
+                expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'],
+                secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
+                httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
+                samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+            )
+            
+            if getattr(settings.SIMPLE_JWT, 'ROTATE_REFRESH_TOKENS', False):
+                response.set_cookie(
+                    key=getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token'),
+                    value=new_refresh_token,
+                    expires=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'],
+                    secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
+                    httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
+                    samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                )
+                
+            return response
+            
+        except Exception as e:
+            return Response({"detail": "Refresh token tidak valid atau kadaluarsa."}, status=401)
 
 
 class ProfilView(APIView):
@@ -152,7 +257,7 @@ class AdminBuatAkunView(APIView):
 class AdminDaftarAkunView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required('kemahasiswaan')
+    @role_required('kemahasiswaan', 'guru_bk')
     def get(self, request):
         search = request.query_params.get('search', '').strip()
 
@@ -166,6 +271,18 @@ class AdminDaftarAkunView(APIView):
             )
 
         siswa_qs = base_qs.filter(role='siswa').order_by('nama_lengkap')
+        
+        # Jika guru_bk, hanya kembalikan daftar siswa
+        if request.user.role == 'guru_bk':
+            return Response({
+                "siswa": {
+                    "total": siswa_qs.count(),
+                    "data": PenggunaSerializer(siswa_qs, many=True).data,
+                },
+                "guru": { "total": 0, "data": [] },
+                "guru_bk": { "total": 0, "data": [] },
+            })
+
         guru_qs = base_qs.filter(role='guru').order_by('nama_lengkap')
         guru_bk_qs = base_qs.filter(role='guru_bk').order_by('nama_lengkap')
 
