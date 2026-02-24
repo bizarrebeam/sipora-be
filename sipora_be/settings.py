@@ -88,7 +88,6 @@ else:
         }
     }
 
-print(f"[STARTUP] PRODUCTION={PRODUCTION}, DB_ENGINE={DATABASES['default']['ENGINE']}")
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -124,13 +123,20 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'core.authentication.CookieJWTAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'core.renderers.CoreJSONRenderer',
     ],
     'EXCEPTION_HANDLER': 'core.exceptions.core_exception_handler',
 }
+
+AUTH_COOKIE = 'access_token'
+AUTH_COOKIE_REFRESH = 'refresh_token'
+AUTH_COOKIE_SECURE = PRODUCTION
+AUTH_COOKIE_HTTP_ONLY = True
+AUTH_COOKIE_PATH = '/'
+AUTH_COOKIE_SAMESITE = 'None' if PRODUCTION else 'Lax'
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
