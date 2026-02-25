@@ -65,9 +65,3 @@ Fitur ini digunakan untuk menandai laporan yang telah selesai ditindaklanjuti. S
 **Backlog Title**: Laporan Periodik Otomatis  
 **Deskripsi Singkat**:  
 Fitur ini memungkinkan Kemahasiswaan untuk melihat rekap data laporan secara periodik dalam bentuk tabel berdasarkan rentang waktu tertentu. Data yang ditampilkan dapat diekspor dan diunduh dalam format PDF sebagai dokumen resmi untuk keperluan monitoring, evaluasi, dan arsip sekolah.
-
-
----
-
-## Referensi
-- Dokumen Product Backlog SIPORA – Propenat 2025/2026 :contentReference[oaicite:1]{index=1}
