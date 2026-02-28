@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'core',
     'akun',
     'log_aktivitas',
+    'laporan_kerusakan',
 ]
 
 AUTH_USER_MODEL = 'akun.Pengguna'
@@ -111,6 +112,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
