@@ -1,0 +1,131 @@
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from akun.decorators import role_required
+from log_aktivitas.utils import catat_log
+from .models import LaporanBullying
+from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer
+
+# Fungsi untuk membuat laporan bullying
+class BuatLaporanBullyingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(['siswa', 'guru'])
+    def post(self, request):
+        serializer = LaporanBullyingCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            laporan = serializer.save(
+                pelapor=request.user,
+                status='menunggu'
+            )
+
+            catat_log(
+                user=request.user,
+                aksi="Membuat Laporan Bullying",
+                deskripsi=f"Membuat laporan bullying: {laporan.judul}",
+                modul="Laporan Bullying"
+            )
+
+            return Response({"message": "Laporan berhasil dibuat", "data": serializer.data}, status=201)
+
+        return Response(serializer.errors, status=400)
+
+# Fungsi untuk mengedit laporan bullying
+class EditLaporanBullyingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(['siswa', 'guru'])
+    def put(self, request, id):
+        try:
+            laporan = LaporanBullying.objects.get(id=id)
+        except LaporanBullying.DoesNotExist:
+            return Response({"error": "Laporan tidak ditemukan"}, status=404)
+
+        if laporan.pelapor != request.user:
+            return Response({"error": "Hanya pengirim yang dapat mengakses dan mengubah laporan"}, status=403)
+
+        if laporan.status != 'menunggu':
+            return Response({"error": "Laporan tidak dapat diubah karena sudah diproses"}, status=400)
+
+        serializer = LaporanBullyingCreateUpdateSerializer(laporan, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+
+            catat_log(
+                user=request.user,
+                aksi="Mengedit Laporan Bullying",
+                deskripsi=f"Mengedit laporan bullying: {laporan.judul}",
+                modul="Laporan Bullying"
+            )
+
+            return Response({"message": "Laporan berhasil diubah", "data": serializer.data})
+
+        return Response(serializer.errors, status=400)
+
+# Fungsi untuk membatalkan laporan bullying
+class CancelLaporanBullyingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(['siswa', 'guru'])
+    def put(self, request, id):
+        alasan = request.data.get('alasan_pembatalan')
+
+        if not alasan or len(alasan) < 50:
+            return Response({"error": "Alasan pembatalan wajib diisi minimal 50 karakter"}, status=400)
+
+        try:
+            laporan = LaporanBullying.objects.get(id=id)
+        except LaporanBullying.DoesNotExist:
+            return Response({"error": "Laporan tidak ditemukan"}, status=404)
+
+        if laporan.pelapor != request.user:
+            return Response({"error": "Hanya pembuat laporan yang bisa membatalkan"}, status=403)
+
+        if laporan.status != 'menunggu':
+            return Response({"error": "Laporan tidak dapat dibatalkan karena sudah diproses."}, status=400)
+
+        laporan.status = 'dibatalkan'
+        laporan.alasan_pembatalan = alasan
+        laporan.save()
+
+        catat_log(
+            user=request.user,
+            aksi="Membatalkan Laporan Bullying",
+            deskripsi=f"Membatalkan laporan: {laporan.judul}",
+            modul="Laporan Bullying"
+        )
+
+        return Response({"message": "Laporan berhasil dibatalkan"})
+
+# Fungsi untuk melihat list laporan bullying
+class ListLaporanBullyingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if user.role in ['kemahasiswaan', 'guru_bk']:
+            laporan = LaporanBullying.objects.all()
+        elif user.role in ['siswa', 'guru']:
+            laporan = LaporanBullying.objects.filter(pelapor=user)
+        else:
+            return Response({"error": "Forbidden"}, status=403)
+
+        serializer = LaporanBullyingListSerializer(laporan, many=True)
+        return Response(serializer.data)
+
+# Fungsi untuk melihat detail laporan bullying
+class DetailLaporanBullyingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id):
+        try:
+            laporan = LaporanBullying.objects.get(id=id)
+        except LaporanBullying.DoesNotExist:
+            return Response({"error": "Laporan belum ditemukan"}, status=404)
+
+        if request.user.role in ['siswa', 'guru'] and laporan.pelapor != request.user:
+            return Response({"error": "Akses ditolak"}, status=403)
+
+        serializer = LaporanBullyingDetailSerializer(laporan)
+        return Response(serializer.data)

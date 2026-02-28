@@ -17,4 +17,5 @@ urlpatterns = [
     path('api/', api_status),
     path('api/akun/', include('akun.urls')),
     path('api/logs/', include('log_aktivitas.urls')),
+    path('api/laporan-bullying/', include('laporan_bullying.urls')),
 ]
