@@ -42,10 +42,12 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
         ]
     
     def get_pelapor_info(self, obj):
-        """Return pelapor info or 'Anonim' based on anonimitas setting"""
+        """Return pelapor info or 'Anonim dari Kelas XX' based on anonimitas setting"""
         if obj.anonimitas:
+            kelas = obj.pelapor.kelas or '-'
             return {
-                'nama_lengkap': 'Anonim',
+                'nama_lengkap': f'Anonim dari Kelas {kelas}',
+                'kelas': kelas,
                 'role': obj.pelapor.role
             }
         return {
@@ -62,9 +64,10 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
         return obj.pelapor.username if obj.pelapor else None
     
     def get_nama_lengkap(self, obj):
-        """Return nama lengkap jika tidak anonim, None jika anonim"""
+        """Return nama lengkap or 'Anonim dari Kelas XX' if anonim"""
         if obj.anonimitas:
-            return None
+            kelas = obj.pelapor.kelas or '-'
+            return f'Anonim dari Kelas {kelas}'
         return obj.pelapor.nama_lengkap if obj.pelapor else None
     
     def get_foto_pendukung(self, obj):
