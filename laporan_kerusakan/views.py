@@ -46,13 +46,23 @@ class CreateLaporanKerusakanView(APIView):
             
             # Log activity
             ip = request.META.get('REMOTE_ADDR')
-            catat_log(
-                request.user,
-                'BUAT_LAPORAN',
-                f"Membuat laporan kerusakan: {laporan.no_laporan}",
-                ip,
-                {'laporan_id': str(laporan.id), 'no_laporan': laporan.no_laporan}
-            )
+            if laporan.anonimitas:
+                kelas = request.user.kelas or '-'
+                catat_log(
+                    None,
+                    'BUAT_LAPORAN',
+                    f"Anonim dari Kelas {kelas} membuat laporan kerusakan: {laporan.no_laporan}",
+                    'kerusakan',
+                    ip
+                )
+            else:
+                catat_log(
+                    request.user,
+                    'BUAT_LAPORAN',
+                    f"Membuat laporan kerusakan: {laporan.no_laporan}",
+                    'kerusakan',
+                    ip
+                )
             
             # Return full laporan data
             response_serializer = LaporanKerusakanSerializer(

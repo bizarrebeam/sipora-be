@@ -6,7 +6,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
-SECRET_KEY = 'django-insecure-u%c-tyv#(=jq+jd_2h=yjpexaqzlou7343s7e$!_e%_$m@8f$2'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
@@ -123,7 +123,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'core.authentication.CookieJWTAuthentication',
