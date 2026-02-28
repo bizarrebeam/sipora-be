@@ -10,7 +10,7 @@ from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingL
 class BuatLaporanBullyingView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required(['siswa', 'guru'])
+    @role_required('siswa', 'guru')
     def post(self, request):
         serializer = LaporanBullyingCreateUpdateSerializer(data=request.data)
         if serializer.is_valid():
@@ -34,7 +34,7 @@ class BuatLaporanBullyingView(APIView):
 class EditLaporanBullyingView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required(['siswa', 'guru'])
+    @role_required('siswa', 'guru')
     def put(self, request, id):
         try:
             laporan = LaporanBullying.objects.get(id=id)
@@ -66,7 +66,7 @@ class EditLaporanBullyingView(APIView):
 class CancelLaporanBullyingView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required(['siswa', 'guru'])
+    @role_required('siswa', 'guru')
     def put(self, request, id):
         alasan = request.data.get('alasan_pembatalan')
 
