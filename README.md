@@ -14,7 +14,7 @@ Berikut adalah daftar fitur dan backlog (PBI) yang saya kerjakan berdasarkan Pro
 
 ---
 
-### 1. PBI-34 — Mengelola Jadwal Ketersediaan Guru BK
+### 1. PBI-38 — Mengelola Jadwal Ketersediaan Guru BK
 
 Backlog Title: Mengelola Jadwal Ketersediaan Guru BK  
 
@@ -23,7 +23,7 @@ Fitur ini memungkinkan Guru BK untuk menambahkan, mengubah, dan menghapus jadwal
 
 ---
 
-### 2. PBI-35 — Membuat Booking Jadwal Konsultasi BK
+### 2. PBI-39 — Membuat Booking Jadwal Konsultasi BK
 
 Backlog Title: Membuat Booking Jadwal Konsultasi BK  
 
@@ -32,7 +32,7 @@ Fitur ini memungkinkan siswa melakukan booking berdasarkan slot yang tersedia. S
 
 ---
 
-### 3. PBI-36 — Mengonfirmasi Jadwal Booking
+### 3. PBI-40 — Mengonfirmasi Jadwal Booking
 
 Backlog Title: Mengonfirmasi Jadwal Booking  
 
@@ -41,7 +41,7 @@ Fitur ini memungkinkan Guru BK untuk menerima atau menolak permintaan booking. H
 
 ---
 
-### 4. PBI-37 — Membatalkan Jadwal Booking Konsultasi
+### 4. PBI-41 — Membatalkan Jadwal Booking Konsultasi
 
 Backlog Title: Membatalkan Jadwal Booking Konsultasi  
 
@@ -50,7 +50,7 @@ Fitur ini memungkinkan siswa membatalkan booking selama masih berstatus *Menungg
 
 ---
 
-### 5. PBI-38 — Reschedule Jadwal Booking Konsultasi
+### 5. PBI-42 — Reschedule Jadwal Booking Konsultasi
 
 Backlog Title: Reschedule Jadwal Booking Konsultasi  
 
@@ -59,7 +59,7 @@ Fitur ini memungkinkan siswa mengubah jadwal booking ke slot lain yang masih ter
 
 ---
 
-### 6. PBI-39 — Melihat Daftar Booking Konsultasi
+### 6. PBI-43 — Melihat Daftar Booking Konsultasi
 
 Backlog Title: Melihat Daftar Booking Konsultasi  
 
@@ -68,18 +68,36 @@ Fitur ini menampilkan daftar booking sesuai peran pengguna. Guru BK dapat meliha
 
 ---
 
-### 7. PBI-41 — Melihat FAQ
+### 7. PBI-47 — Membuat artikel kesehatan mental
 
-Backlog Title: Melihat FAQ  
+Backlog Title: Membuat artikel kesehatan mental
 
 Deskripsi Singkat:  
-Fitur ini menyediakan halaman FAQ yang berisi informasi umum terkait sistem dan mekanisme konsultasi BK untuk membantu pengguna memahami alur penggunaan sistem.
+Fitur membuat artikel kesehatan mental memungkinkan kemahasiswaan membuat sebuah artikel yang berkaitan dengan isu kesehatan mental bagi siswa-siswi SMP Budi Mulia Desa Putera
 
 ---
 
-### 8. PBI-45 — Membaca Artikel Kesehatan Mental
+### 8. PBI-48 — Mengedit artikel kesehatan mental
 
-Backlog Title: Membaca Artikel Kesehatan Mental  
+Backlog Title: Mengedit artikel kesehatan mental 
 
 Deskripsi Singkat:  
-Fitur ini memungkinkan siswa membaca artikel edukatif terkait kesehatan mental yang disediakan dalam sistem sebagai bentuk dukungan preventif dan edukatif.
+Fitur mengedit artikel kesehatan mental memungkinkan kemahasiswaan mengedit sebuah artikel yang berkaitan dengan isu kesehatan mental  yang telah disimpan dalam sistem sebelumnya
+
+---
+
+### 9. PBI-50 — Membaca artikel kesehatan mental
+
+Backlog Title: Membaca artikel kesehatan mental
+
+Deskripsi Singkat:  
+Fitur membaca artikel kesehatan mental memungkinkan pelapor membaca sebuah artikel yang berkaitan dengan isu kesehatan mental
+
+---
+
+### 7. PBI-52 — Melihat daftar artikel yang dibuat
+
+Backlog Title: Melihat daftar artikel yang dibuat
+
+Deskripsi Singkat:  
+Fitur melihat daftar artikel artikel kesehatan mental memungkinkan kemahasiswaan melihat daftar artikel yang berkaitan dengan isu kesehatan mentals
