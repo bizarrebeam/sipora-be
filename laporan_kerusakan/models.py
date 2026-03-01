@@ -71,6 +71,32 @@ class LaporanKerusakan(models.Model):
         super().save(*args, **kwargs)
 
 
+class RiwayatStatusLaporan(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    laporan = models.ForeignKey(
+        LaporanKerusakan,
+        on_delete=models.CASCADE,
+        related_name='riwayat_status'
+    )
+    status = models.CharField(max_length=20, choices=LaporanKerusakan.STATUS_CHOICES)
+    catatan = models.TextField(blank=True, null=True)
+    diubah_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    waktu = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['waktu']
+        verbose_name = 'Riwayat Status Laporan'
+        verbose_name_plural = 'Riwayat Status Laporan'
+
+    def __str__(self):
+        return f"{self.laporan.no_laporan} → {self.status}"
+
+
 class FotoBuktiPendukung(models.Model):    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     laporan = models.ForeignKey(
