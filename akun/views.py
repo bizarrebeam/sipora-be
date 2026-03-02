@@ -26,6 +26,11 @@ class SeedDatabaseView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        if not settings.DEBUG:
+            return Response(
+                {"error": "Endpoint ini hanya tersedia di mode development."},
+                status=status.HTTP_404_NOT_FOUND
+            )
         try:
             call_command('flush', interactive=False)
             call_command('seed_users')
