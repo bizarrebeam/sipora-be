@@ -150,6 +150,33 @@ class ListLaporanBullyingView(APIView):
         else:
             return Response({"error": "Forbidden"}, status=403)
 
+        # Filter berdasarkan status
+        status_filter = request.query_params.get('status')
+        if status_filter and status_filter != 'semua':
+            laporan = laporan.filter(status=status_filter)
+
+        # Filter berdasarkan pencarian
+        search_query = request.query_params.get('search')
+        if search_query:
+            from django.db.models import Q
+            laporan = laporan.filter(
+                Q(judul__icontains=search_query) |
+                Q(lokasi__icontains=search_query) |
+                Q(no_laporan__icontains=search_query)
+            )
+
+        # Filter berdasarkan tanggal kejadian
+        date_filter = request.query_params.get('date')
+        if date_filter:
+            laporan = laporan.filter(tanggal_kejadian__date=date_filter)
+
+        # Sort berdasarkan keterbaharuan
+        sort_order = request.query_params.get('sort')
+        if sort_order == 'asc':
+            laporan = laporan.order_by('tanggal_laporan')
+        elif sort_order == 'desc':
+            laporan = laporan.order_by('-tanggal_laporan')
+
         if not laporan.exists():
             return Response({"message": "Belum ada laporan yang dikirimkan."}, status=200)
 
