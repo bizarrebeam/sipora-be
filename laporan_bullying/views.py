@@ -19,12 +19,25 @@ class BuatLaporanBullyingView(APIView):
                 status='menunggu'
             )
 
-            catat_log(
-                user=request.user,
-                aksi="Membuat Laporan Bullying",
-                deskripsi=f"Membuat laporan bullying: {laporan.judul}",
-                modul="Laporan Bullying"
-            )
+            # Log activity
+            ip = request.META.get('REMOTE_ADDR')
+            if laporan.anonimitas:
+                kelas = request.user.kelas or '-'
+                catat_log(
+                    None,
+                    'BUAT_LAPORAN',
+                    f"Anonim dari Kelas {kelas} membuat laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
+            else:
+                catat_log(
+                    request.user,
+                    'BUAT_LAPORAN',
+                    f"Membuat laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
 
             return Response({"message": "Laporan berhasil dibuat", "data": serializer.data}, status=201)
 
@@ -51,12 +64,25 @@ class EditLaporanBullyingView(APIView):
         if serializer.is_valid():
             serializer.save()
 
-            catat_log(
-                user=request.user,
-                aksi="Mengedit Laporan Bullying",
-                deskripsi=f"Mengedit laporan bullying: {laporan.judul}",
-                modul="Laporan Bullying"
-            )
+            # Log activity
+            ip = request.META.get('REMOTE_ADDR')
+            if laporan.anonimitas:
+                kelas = request.user.kelas or '-'
+                catat_log(
+                    None,
+                    'EDIT_LAPORAN',
+                    f"Anonim dari Kelas {kelas} mengedit laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
+            else:
+                catat_log(
+                    request.user,
+                    'EDIT_LAPORAN',
+                    f"Mengedit laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
 
             return Response({"message": "Laporan berhasil diubah", "data": serializer.data})
 
@@ -88,12 +114,25 @@ class CancelLaporanBullyingView(APIView):
         laporan.alasan_pembatalan = alasan
         laporan.save()
 
-        catat_log(
-            user=request.user,
-            aksi="Membatalkan Laporan Bullying",
-            deskripsi=f"Membatalkan laporan: {laporan.judul}",
-            modul="Laporan Bullying"
-        )
+        # Log activity
+        ip = request.META.get('REMOTE_ADDR')
+        if laporan.anonimitas:
+            kelas = request.user.kelas or '-'
+            catat_log(
+                None,
+                'BATALKAN_LAPORAN',
+                f"Anonim dari Kelas {kelas} membatalkan laporan bullying: {laporan.no_laporan}",
+                'laporan_bullying',
+                ip
+            )
+        else:
+            catat_log(
+                request.user,
+                'BATALKAN_LAPORAN',
+                f"Membatalkan laporan bullying: {laporan.no_laporan}",
+                'laporan_bullying',
+                ip
+            )
 
         return Response({"message": "Laporan berhasil dibatalkan"})
 
@@ -110,6 +149,9 @@ class ListLaporanBullyingView(APIView):
             laporan = LaporanBullying.objects.filter(pelapor=user)
         else:
             return Response({"error": "Forbidden"}, status=403)
+
+        if not laporan.exists():
+            return Response({"message": "Belum ada laporan yang dikirimkan."}, status=200)
 
         serializer = LaporanBullyingListSerializer(laporan, many=True)
         return Response(serializer.data)
