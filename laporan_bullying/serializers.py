@@ -44,6 +44,7 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
 class LaporanBullyingListSerializer(serializers.ModelSerializer):
     nama_pengirim = serializers.SerializerMethodField()
     akun_terverifikasi = serializers.SerializerMethodField()
+    kelas = serializers.SerializerMethodField()
 
     class Meta:
         model = LaporanBullying
@@ -55,6 +56,7 @@ class LaporanBullyingListSerializer(serializers.ModelSerializer):
             'lokasi',
             'status',
             'nama_pengirim',
+            'kelas',
             'akun_terverifikasi',
             'tanggal_laporan'
         ]
@@ -65,11 +67,14 @@ class LaporanBullyingListSerializer(serializers.ModelSerializer):
     def get_akun_terverifikasi(self, obj):
         return getattr(obj.pelapor, 'is_verified', False)
 
+    def get_kelas(self, obj):
+        return getattr(obj.pelapor, 'kelas', None)
+
 class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
     foto_bukti = FotoBuktiBullyingSerializer(many=True, read_only=True)
     nama_pengirim = serializers.SerializerMethodField()
     akun_terverifikasi = serializers.SerializerMethodField()
-    kelas_pengirim = serializers.SerializerMethodField()
+    kelas = serializers.SerializerMethodField()
 
     class Meta:
         model = LaporanBullying
@@ -77,7 +82,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
             'id',
             'no_laporan',
             'nama_pengirim',
-            'kelas_pengirim',
+            'kelas',
             'judul',
             'deskripsi',
             'lokasi',
@@ -93,7 +98,9 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
     def get_nama_pengirim(self, obj):
         return obj.get_nama_pelapor()
 
-    def get_kelas_pengirim(self, obj):
+    def get_kelas(self, obj):
+        if obj.anonimitas:
+            return "Dirahasiakan"
         return getattr(obj.pelapor, 'kelas', None)
 
     def get_akun_terverifikasi(self, obj):
