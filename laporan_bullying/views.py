@@ -196,5 +196,8 @@ class DetailLaporanBullyingView(APIView):
         if request.user.role in ['siswa', 'guru'] and laporan.pelapor != request.user:
             return Response({"error": "Akses ditolak"}, status=403)
 
-        serializer = LaporanBullyingDetailSerializer(laporan)
+        serializer = LaporanBullyingDetailSerializer(
+            laporan,
+            context={'request': request}
+        )
         return Response(serializer.data)

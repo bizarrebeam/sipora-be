@@ -4,10 +4,17 @@ from .models import LaporanBullying, FotoBuktiBullying
 
 # Serializer untuk foto bukti bullying
 class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
+    foto = serializers.SerializerMethodField()
+
     class Meta:
         model = FotoBuktiBullying
         fields = ['id', 'foto', 'uploaded_at']
-        read_only_fields = ['id', 'uploaded_at']
+
+    def get_foto(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.foto.url)
+        return obj.foto.url
 
 class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
