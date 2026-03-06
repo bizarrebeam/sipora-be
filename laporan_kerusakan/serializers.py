@@ -192,3 +192,109 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
         )
 
         return laporan
+
+
+class EditLaporanKerusakanSerializer(serializers.ModelSerializer):
+    foto_bukti = serializers.ListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=False,
+        max_length=5
+    )
+    tanggal_kejadian = serializers.CharField()
+
+    class Meta:
+        model = LaporanKerusakan
+        fields = [
+            'judul', 'deskripsi', 'lokasi', 'tanggal_kejadian',
+            'anonimitas', 'foto_bukti'
+        ]
+
+    def validate_foto_bukti(self, value):
+        if len(value) > 5:
+            raise serializers.ValidationError("Maksimal 5 foto")
+
+        for foto in value:
+            if foto.size > 5 * 1024 * 1024:  # 5MB
+                raise serializers.ValidationError(
+                    f"Ukuran file {foto.name} maksimal 5 MB"
+                )
+
+            allowed_types = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+            content_type = foto.content_type
+            if content_type not in allowed_types:
+                raise serializers.ValidationError(
+                    f"Format file {foto.name} tidak didukung. "
+                    "Hanya PNG, JPG, JPEG, dan WEBP yang diperbolehkan."
+                )
+
+        return value
+
+    def validate(self, attrs):
+        errors = {}
+
+        if not attrs.get('judul') or not str(attrs.get('judul')).strip():
+            errors['judul'] = 'Judul wajib diisi'
+
+        if not attrs.get('deskripsi') or not str(attrs.get('deskripsi')).strip():
+            errors['deskripsi'] = 'Deskripsi wajib diisi'
+
+        if not attrs.get('lokasi') or not str(attrs.get('lokasi')).strip():
+            errors['lokasi'] = 'Lokasi wajib diisi'
+
+        t = attrs.get('tanggal_kejadian')
+        if not t:
+            errors['tanggal_kejadian'] = 'Tanggal wajib diisi'
+        else:
+            parsed = None
+            if isinstance(t, _date):
+                parsed = t
+            else:
+                for fmt in ('%d/%m/%Y', '%Y-%m-%d'):
+                    try:
+                        parsed = datetime.strptime(str(t), fmt).date()
+                        break
+                    except Exception:
+                        parsed = None
+
+            if not parsed:
+                errors['tanggal_kejadian'] = 'Format tanggal tidak valid'
+            else:
+                if parsed > datetime.now().date():
+                    errors['tanggal_kejadian'] = 'Tanggal kejadian tidak boleh lebih dari hari ini'
+                else:
+                    attrs['tanggal_kejadian'] = parsed
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        foto_bukti_list = validated_data.pop('foto_bukti', [])
+
+        # update simple fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        # add new foto pendukung (do not delete existing ones)
+        for foto in foto_bukti_list:
+            FotoBuktiPendukung.objects.create(
+                laporan=instance,
+                foto=foto
+            )
+
+        return instance
+
+
+class CancelLaporanKerusakanSerializer(serializers.Serializer):
+    alasan = serializers.CharField()
+
+    def validate_alasan(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError('Alasan pembatalan wajib diisi')
+        if len(value.strip()) < 50:
+            raise serializers.ValidationError('Alasan pembatalan wajib minimal 50 karakter')
+        return value.strip()
