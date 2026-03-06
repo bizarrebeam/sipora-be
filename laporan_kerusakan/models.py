@@ -18,6 +18,7 @@ class LaporanKerusakan(models.Model):
         ('diproses', 'Diproses'),
         ('selesai', 'Selesai'),
         ('ditolak', 'Ditolak'),
+        ('dibatalkan', 'Dibatalkan'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
