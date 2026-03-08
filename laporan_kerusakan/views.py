@@ -382,7 +382,6 @@ class CancelLaporanKerusakanView(APIView):
 
         serializer = CancelLaporanKerusakanSerializer(data=request.data)
         if not serializer.is_valid():
-            # normalize error message for empty alasan
             errors = serializer.errors
             if 'alasan' in errors and any('wajib' in str(e).lower() for e in errors['alasan']):
                 return Response(
