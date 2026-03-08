@@ -130,3 +130,35 @@ class FotoBuktiBullying(models.Model):
     def __str__(self):
         return f"Foto untuk {self.laporan.no_laporan}"
 
+class RiwayatStatusBullying(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    laporan = models.ForeignKey(
+        LaporanBullying,
+        on_delete=models.CASCADE,
+        related_name='riwayat_status'
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=LaporanBullying.STATUS_CHOICES
+    )
+
+    catatan = models.TextField(blank=True, null=True)
+
+    diubah_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Riwayat Status Bullying'
+        verbose_name_plural = 'Riwayat Status Bullying'
+
+    def __str__(self):
+        return f"{self.laporan.no_laporan} - {self.status}"

@@ -3,8 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
-from .models import LaporanBullying, FotoBuktiBullying
-from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer
+from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
+from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer, RiwayatStatusBullyingSerializer
 
 # Fungsi untuk membuat laporan bullying
 class BuatLaporanBullyingView(APIView):
@@ -28,6 +28,13 @@ class BuatLaporanBullyingView(APIView):
                     laporan=laporan,
                     foto=file
                 )
+
+            RiwayatStatusBullying.objects.create(
+                laporan=laporan,
+                status='menunggu',
+                diubah_oleh=request.user,
+                catatan="Laporan dibuat"
+            )
 
             return Response({
                 "message": "Laporan berhasil dibuat",
@@ -106,6 +113,13 @@ class CancelLaporanBullyingView(APIView):
         laporan.status = 'dibatalkan'
         laporan.alasan_pembatalan = alasan
         laporan.save()
+
+        RiwayatStatusBullying.objects.create(
+            laporan=laporan,
+            status='dibatalkan',
+            diubah_oleh=request.user,
+            catatan="Laporan dibatalkan"
+        )
 
         # Log activity
         ip = request.META.get('REMOTE_ADDR')
