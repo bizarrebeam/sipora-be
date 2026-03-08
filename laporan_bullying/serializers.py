@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from datetime import datetime, date
-from .models import LaporanBullying, FotoBuktiBullying
+from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 
 # Serializer untuk foto bukti bullying
 class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
@@ -15,6 +15,27 @@ class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.foto.url)
         return obj.foto.url
+
+class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RiwayatStatusBullying
+        fields = [
+            'status',
+            'catatan',
+            'diubah_oleh',
+            'created_at',
+            'user'
+        ]
+
+    def get_user(self, obj):
+        if obj.diubah_oleh:
+            return {
+                'id': obj.diubah_oleh.id,
+                'nama': getattr(obj.diubah_oleh, 'nama_lengkap', 'Admin')
+            }
+        return None
 
 class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -82,6 +103,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
     nama_pengirim = serializers.SerializerMethodField()
     akun_terverifikasi = serializers.SerializerMethodField()
     kelas = serializers.SerializerMethodField()
+    riwayat_status = RiwayatStatusBullyingSerializer(many=True, read_only=True)
 
     class Meta:
         model = LaporanBullying
@@ -99,7 +121,8 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
             'foto_bukti',
             'tanggal_laporan',
             'updated_at',
-            'akun_terverifikasi'
+            'akun_terverifikasi',
+            'riwayat_status'
         ]
 
     def get_nama_pengirim(self, obj):
@@ -120,3 +143,4 @@ class CancelLaporanSerializer(serializers.Serializer):
         if not value or len(value) < 50:
             raise serializers.ValidationError("Alasan pembatalan wajib diisi minimal 50 karakter")
         return value
+
