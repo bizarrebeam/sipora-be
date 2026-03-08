@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
-from .models import LaporanBullying
+from .models import LaporanBullying, FotoBuktiBullying
 from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer
 
 # Fungsi untuk membuat laporan bullying
@@ -13,33 +13,26 @@ class BuatLaporanBullyingView(APIView):
     @role_required('siswa', 'guru')
     def post(self, request):
         serializer = LaporanBullyingCreateUpdateSerializer(data=request.data)
+
         if serializer.is_valid():
             laporan = serializer.save(
                 pelapor=request.user,
                 status='menunggu'
             )
 
-            # Log activity
-            ip = request.META.get('REMOTE_ADDR')
-            if laporan.anonimitas:
-                kelas = request.user.kelas or '-'
-                catat_log(
-                    None,
-                    'BUAT_LAPORAN',
-                    f"Anonim dari Kelas {kelas} membuat laporan bullying: {laporan.no_laporan}",
-                    'laporan_bullying',
-                    ip
-                )
-            else:
-                catat_log(
-                    request.user,
-                    'BUAT_LAPORAN',
-                    f"Membuat laporan bullying: {laporan.no_laporan}",
-                    'laporan_bullying',
-                    ip
+            # Mengambil file dari request
+            files = request.FILES.getlist('foto_bukti')
+
+            for file in files:
+                FotoBuktiBullying.objects.create(
+                    laporan=laporan,
+                    foto=file
                 )
 
-            return Response({"message": "Laporan berhasil dibuat", "data": serializer.data}, status=201)
+            return Response({
+                "message": "Laporan berhasil dibuat",
+                "data": serializer.data
+            }, status=201)
 
         return Response(serializer.errors, status=400)
 
