@@ -183,7 +183,6 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
                 foto=foto
             )
 
-        # Create initial riwayat status
         RiwayatStatusLaporan.objects.create(
             laporan=laporan,
             status='menunggu',
@@ -273,13 +272,11 @@ class EditLaporanKerusakanSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         foto_bukti_list = validated_data.pop('foto_bukti', [])
 
-        # update simple fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
 
-        # add new foto pendukung (do not delete existing ones)
         for foto in foto_bukti_list:
             FotoBuktiPendukung.objects.create(
                 laporan=instance,
