@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/akun/', include('akun.urls')),
     path('api/logs/', include('log_aktivitas.urls')),
     path('api/laporan-kerusakan/', include('laporan_kerusakan.urls')),
+    path('api/artikel/', include('artikel.urls')),
 ]
 
 # Only enable Django Admin in development

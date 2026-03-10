@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'akun',
     'log_aktivitas',
     'laporan_kerusakan',
+    'artikel',
 ]
 
 AUTH_USER_MODEL = 'akun.Pengguna'
