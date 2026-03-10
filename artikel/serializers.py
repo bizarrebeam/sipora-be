@@ -3,6 +3,9 @@ from .models import Artikel
 
 
 class ArtikelSerializer(serializers.ModelSerializer):
+    """Serializer untuk list dan detail artikel"""
+
+    gambar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Artikel
@@ -12,6 +15,7 @@ class ArtikelSerializer(serializers.ModelSerializer):
             'ringkasan',
             'konten',
             'gambar',
+            'gambar_url',
             'status',
             'created_at',
             'updated_at'
@@ -29,13 +33,22 @@ class ArtikelSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-            # Gunakan check 'in data' agar partial update tidak error
-            # Jika sedang PUT dan konten tidak dikirim, dia tidak akan protes
-            
-            if 'judul' in data and not data.get('judul'):
-                raise serializers.ValidationError("Judul wajib diisi.")
+        """Validasi judul dan konten"""
+        if 'judul' in data and not data.get('judul'):
+            raise serializers.ValidationError("Judul wajib diisi.")
 
-            if 'konten' in data and not data.get('konten'):
-                raise serializers.ValidationError("Konten wajib diisi.")
+        if 'konten' in data and not data.get('konten'):
+            raise serializers.ValidationError("Konten wajib diisi.")
 
-            return data
+        return data
+
+    def get_gambar_url(self, obj):
+        """Return URL gambar artikel"""
+        request = self.context.get('request')
+
+        if obj.gambar and hasattr(obj.gambar, 'url'):
+            if request:
+                return request.build_absolute_uri(obj.gambar.url)
+            return obj.gambar.url
+
+        return None
