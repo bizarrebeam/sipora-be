@@ -9,7 +9,6 @@ from .serializers import ArtikelSerializer
 from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
 
-
 class ArtikelKelolaView(APIView):
     """PBI-52: Daftar artikel Draft & Published untuk Kemahasiswaan"""
     permission_classes = [IsAuthenticated]
@@ -18,14 +17,14 @@ class ArtikelKelolaView(APIView):
     def get(self, request):
         artikel_list = Artikel.objects.all().order_by('-created_at')
         
-        # Cek jika tidak ada data sama sekali
         if not artikel_list.exists():
             return Response({
                 "message": "Daftar artikel masih kosong",
                 "data": []
             }, status=status.HTTP_200_OK)
 
-        serializer = ArtikelSerializer(artikel_list, many=True)
+        # TAMBAHKAN CONTEXT REQUEST
+        serializer = ArtikelSerializer(artikel_list, many=True, context={'request': request})
         return Response({
             "message": "Berhasil mengambil daftar artikel",
             "data": serializer.data
@@ -37,7 +36,6 @@ class ArtikelListCreateView(APIView):
     
     # PBI-50: List artikel Published
     def get(self, request):
-        # Menggunakan 'published' (huruf kecil) agar sesuai dengan models.py
         artikel_list = Artikel.objects.filter(status='published').order_by('-created_at')
 
         if not artikel_list.exists():
@@ -46,7 +44,8 @@ class ArtikelListCreateView(APIView):
                 "data": []
             }, status=status.HTTP_200_OK)
 
-        serializer = ArtikelSerializer(artikel_list, many=True)
+        # TAMBAHKAN CONTEXT REQUEST
+        serializer = ArtikelSerializer(artikel_list, many=True, context={'request': request})
         return Response({
             "message": "Berhasil mengambil daftar artikel",
             "data": serializer.data
@@ -55,11 +54,10 @@ class ArtikelListCreateView(APIView):
     # PBI-47: Create artikel
     @role_required(['kemahasiswaan'])
     def post(self, request):
-
-        serializer = ArtikelSerializer(data=request.data)
+        # TAMBAHKAN CONTEXT REQUEST SAAT INISIALISASI
+        serializer = ArtikelSerializer(data=request.data, context={'request': request})
 
         if serializer.is_valid():
-
             artikel = serializer.save()
 
             catat_log(
@@ -85,15 +83,16 @@ class ArtikelDetailUpdateView(APIView):
 
     # PBI-50: Detail artikel
     def get(self, request, id):
-
         artikel = get_object_or_404(Artikel, pk=id)
 
-        if artikel.status == 'Draft' and request.user.role != 'kemahasiswaan':
+        # PERBAIKAN: Gunakan 'published' atau 'draft' (lowercase sesuai model)
+        if artikel.status == 'draft' and request.user.role != 'kemahasiswaan':
             return Response({
                 "message": "Artikel tidak ditemukan"
             }, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = ArtikelSerializer(artikel)
+        # TAMBAHKAN CONTEXT REQUEST
+        serializer = ArtikelSerializer(artikel, context={'request': request})
 
         return Response({
             "message": "Berhasil mengambil detail artikel",
@@ -104,17 +103,17 @@ class ArtikelDetailUpdateView(APIView):
     # PBI-48: Update artikel
     @role_required(['kemahasiswaan'])
     def put(self, request, id):
-
         artikel = get_object_or_404(Artikel, pk=id)
 
+        # TAMBAHKAN CONTEXT REQUEST
         serializer = ArtikelSerializer(
             artikel,
             data=request.data,
-            partial=True
+            partial=True,
+            context={'request': request}
         )
 
         if serializer.is_valid():
-
             artikel = serializer.save()
 
             catat_log(
