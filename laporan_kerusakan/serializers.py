@@ -2,6 +2,74 @@ from rest_framework import serializers
 from .models import LaporanKerusakan, FotoBuktiPendukung, RiwayatStatusLaporan
 from akun.models import Pengguna
 from datetime import datetime, date as _date
+import re
+
+
+MAX_FILES = 5
+MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
+MAX_TOTAL_SIZE_BYTES = MAX_FILES * MAX_FILE_SIZE_BYTES
+MIN_REPORT_DATE = _date(2000, 1, 1)
+FORBIDDEN_SPECIAL_CHARS_REGEX = re.compile(r'[@!~`#$%^&*+_\-]')
+
+
+def normalize_text(value):
+    if value is None:
+        return ''
+    text = str(value)
+    text = re.sub(r'[\u200B-\u200D\uFEFF]', '', text)
+    return text.strip()
+
+
+def validate_text_field(field_name, value, min_length=None, max_length=None):
+    normalized = normalize_text(value)
+
+    if not normalized:
+        return f'{field_name} wajib diisi'
+    if FORBIDDEN_SPECIAL_CHARS_REGEX.search(normalized):
+        return f'{field_name} mengandung karakter yang tidak diperbolehkan'
+    if min_length and len(normalized) < min_length:
+        return f'{field_name} minimal {min_length} karakter'
+    if max_length and len(normalized) > max_length:
+        return f'{field_name} maksimal {max_length} karakter'
+
+    return None
+
+
+def validate_uploaded_files(file_list):
+    if len(file_list) > MAX_FILES:
+        raise serializers.ValidationError(f'Maksimal {MAX_FILES} foto')
+
+    allowed_types = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+    total_size = 0
+    signatures = set()
+
+    for foto in file_list:
+        signature = f'{foto.name}|{foto.size}'
+        if signature in signatures:
+            raise serializers.ValidationError(f'File duplikat terdeteksi: {foto.name}')
+        signatures.add(signature)
+
+        if foto.size == 0:
+            raise serializers.ValidationError(f'File {foto.name} kosong')
+
+        if foto.size > MAX_FILE_SIZE_BYTES:
+            raise serializers.ValidationError(
+                f'Ukuran file {foto.name} maksimal 5 MB'
+            )
+
+        content_type = foto.content_type
+        if content_type not in allowed_types:
+            raise serializers.ValidationError(
+                f'Format file {foto.name} tidak didukung. '
+                'Hanya PNG, JPG, JPEG, dan WEBP yang diperbolehkan.'
+            )
+
+        total_size += foto.size
+
+    if total_size > MAX_TOTAL_SIZE_BYTES:
+        raise serializers.ValidationError('Total ukuran semua foto maksimal 25 MB')
+
+    return file_list
 
 
 class FotoBuktiSerializer(serializers.ModelSerializer):
@@ -97,7 +165,7 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
         child=serializers.ImageField(),
         write_only=True,
         required=False,
-        max_length=5
+        max_length=MAX_FILES
     )
     tanggal_kejadian = serializers.CharField()
     
@@ -109,36 +177,21 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
         ]
     
     def validate_foto_bukti(self, value):
-        if len(value) > 5:
-            raise serializers.ValidationError("Maksimal 5 foto")
-        
-        for foto in value:
-            if foto.size > 5 * 1024 * 1024:  # 5MB
-                raise serializers.ValidationError(
-                    f"Ukuran file {foto.name} maksimal 5 MB"
-                )
-            
-            allowed_types = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
-            content_type = foto.content_type
-            if content_type not in allowed_types:
-                raise serializers.ValidationError(
-                    f"Format file {foto.name} tidak didukung. "
-                    "Hanya PNG, JPG, JPEG, dan WEBP yang diperbolehkan."
-                )
-        
-        return value
+        return validate_uploaded_files(value)
 
     def validate(self, attrs):
         errors = {}
 
-        if not attrs.get('judul') or not str(attrs.get('judul')).strip():
-            errors['judul'] = 'Judul wajib diisi'
+        judul_error = validate_text_field('Judul', attrs.get('judul'), min_length=5, max_length=120)
+        deskripsi_error = validate_text_field('Deskripsi', attrs.get('deskripsi'), min_length=20, max_length=2000)
+        lokasi_error = validate_text_field('Lokasi', attrs.get('lokasi'), min_length=3, max_length=255)
 
-        if not attrs.get('deskripsi') or not str(attrs.get('deskripsi')).strip():
-            errors['deskripsi'] = 'Deskripsi wajib diisi'
-
-        if not attrs.get('lokasi') or not str(attrs.get('lokasi')).strip():
-            errors['lokasi'] = 'Lokasi wajib diisi'
+        if judul_error:
+            errors['judul'] = judul_error
+        if deskripsi_error:
+            errors['deskripsi'] = deskripsi_error
+        if lokasi_error:
+            errors['lokasi'] = lokasi_error
 
         t = attrs.get('tanggal_kejadian')
         if not t:
@@ -158,10 +211,19 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
             if not parsed:
                 errors['tanggal_kejadian'] = 'Format tanggal tidak valid'
             else:
-                if parsed > datetime.now().date():
+                if parsed < MIN_REPORT_DATE:
+                    errors['tanggal_kejadian'] = 'Tanggal kejadian tidak valid'
+                elif parsed > datetime.now().date():
                     errors['tanggal_kejadian'] = 'Tanggal kejadian tidak boleh lebih dari hari ini'
                 else:
                     attrs['tanggal_kejadian'] = parsed
+
+        if 'judul' in attrs:
+            attrs['judul'] = normalize_text(attrs.get('judul'))
+        if 'deskripsi' in attrs:
+            attrs['deskripsi'] = normalize_text(attrs.get('deskripsi'))
+        if 'lokasi' in attrs:
+            attrs['lokasi'] = normalize_text(attrs.get('lokasi'))
 
         if errors:
             raise serializers.ValidationError(errors)
@@ -198,7 +260,7 @@ class EditLaporanKerusakanSerializer(serializers.ModelSerializer):
         child=serializers.ImageField(),
         write_only=True,
         required=False,
-        max_length=5
+        max_length=MAX_FILES
     )
     tanggal_kejadian = serializers.CharField()
 
@@ -210,36 +272,21 @@ class EditLaporanKerusakanSerializer(serializers.ModelSerializer):
         ]
 
     def validate_foto_bukti(self, value):
-        if len(value) > 5:
-            raise serializers.ValidationError("Maksimal 5 foto")
-
-        for foto in value:
-            if foto.size > 5 * 1024 * 1024:  # 5MB
-                raise serializers.ValidationError(
-                    f"Ukuran file {foto.name} maksimal 5 MB"
-                )
-
-            allowed_types = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
-            content_type = foto.content_type
-            if content_type not in allowed_types:
-                raise serializers.ValidationError(
-                    f"Format file {foto.name} tidak didukung. "
-                    "Hanya PNG, JPG, JPEG, dan WEBP yang diperbolehkan."
-                )
-
-        return value
+        return validate_uploaded_files(value)
 
     def validate(self, attrs):
         errors = {}
 
-        if not attrs.get('judul') or not str(attrs.get('judul')).strip():
-            errors['judul'] = 'Judul wajib diisi'
+        judul_error = validate_text_field('Judul', attrs.get('judul'), min_length=5, max_length=120)
+        deskripsi_error = validate_text_field('Deskripsi', attrs.get('deskripsi'), min_length=20, max_length=2000)
+        lokasi_error = validate_text_field('Lokasi', attrs.get('lokasi'), min_length=3, max_length=255)
 
-        if not attrs.get('deskripsi') or not str(attrs.get('deskripsi')).strip():
-            errors['deskripsi'] = 'Deskripsi wajib diisi'
-
-        if not attrs.get('lokasi') or not str(attrs.get('lokasi')).strip():
-            errors['lokasi'] = 'Lokasi wajib diisi'
+        if judul_error:
+            errors['judul'] = judul_error
+        if deskripsi_error:
+            errors['deskripsi'] = deskripsi_error
+        if lokasi_error:
+            errors['lokasi'] = lokasi_error
 
         t = attrs.get('tanggal_kejadian')
         if not t:
@@ -259,10 +306,19 @@ class EditLaporanKerusakanSerializer(serializers.ModelSerializer):
             if not parsed:
                 errors['tanggal_kejadian'] = 'Format tanggal tidak valid'
             else:
-                if parsed > datetime.now().date():
+                if parsed < MIN_REPORT_DATE:
+                    errors['tanggal_kejadian'] = 'Tanggal kejadian tidak valid'
+                elif parsed > datetime.now().date():
                     errors['tanggal_kejadian'] = 'Tanggal kejadian tidak boleh lebih dari hari ini'
                 else:
                     attrs['tanggal_kejadian'] = parsed
+
+        if 'judul' in attrs:
+            attrs['judul'] = normalize_text(attrs.get('judul'))
+        if 'deskripsi' in attrs:
+            attrs['deskripsi'] = normalize_text(attrs.get('deskripsi'))
+        if 'lokasi' in attrs:
+            attrs['lokasi'] = normalize_text(attrs.get('lokasi'))
 
         if errors:
             raise serializers.ValidationError(errors)
