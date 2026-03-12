@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
@@ -79,17 +79,26 @@ class ArtikelListCreateView(APIView):
 
 
 class ArtikelDetailUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+
+    # PBI-50: Detail artikel - dapat diakses oleh semua orang
+    def get_permissions(self):
+        """Override untuk memungkinkan unauthenticated access ke GET, tapi restrict PUT/DELETE"""
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     # PBI-50: Detail artikel
     def get(self, request, id):
         artikel = get_object_or_404(Artikel, pk=id)
 
         # PERBAIKAN: Gunakan 'published' atau 'draft' (lowercase sesuai model)
-        if artikel.status == 'draft' and request.user.role != 'kemahasiswaan':
-            return Response({
-                "message": "Artikel tidak ditemukan"
-            }, status=status.HTTP_404_NOT_FOUND)
+        # Hanya admin (kemahasiswaan) yang bisa melihat draft. Publik hanya bisa lihat published
+        if artikel.status == 'draft':
+            # Check apakah user authenticated dan memiliki role kemahasiswaan
+            if not request.user.is_authenticated or request.user.role != 'kemahasiswaan':
+                return Response({
+                    "message": "Artikel tidak ditemukan"
+                }, status=status.HTTP_404_NOT_FOUND)
 
         # TAMBAHKAN CONTEXT REQUEST
         serializer = ArtikelSerializer(artikel, context={'request': request})
