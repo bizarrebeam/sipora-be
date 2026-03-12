@@ -32,9 +32,14 @@ class ArtikelKelolaView(APIView):
 
 
 class ArtikelListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
     
-    # PBI-50: List artikel Published
+    # Override untuk allow unauthenticated GET (public articles) tapi restrict POST (create) ke authenticated admin
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+    
+    # PBI-50: List artikel Published - dapat diakses publik
     def get(self, request):
         artikel_list = Artikel.objects.filter(status='published').order_by('-created_at')
 
@@ -51,7 +56,7 @@ class ArtikelListCreateView(APIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-    # PBI-47: Create artikel
+    # PBI-47: Create artikel - restricted to authenticated kemahasiswaan
     @role_required(['kemahasiswaan'])
     def post(self, request):
         # TAMBAHKAN CONTEXT REQUEST SAAT INISIALISASI
