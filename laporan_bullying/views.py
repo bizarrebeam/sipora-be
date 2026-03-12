@@ -23,6 +23,19 @@ class BuatLaporanBullyingView(APIView):
             # Mengambil file dari request
             files = request.FILES.getlist('foto_bukti')
 
+            # Validasi jumlah file
+            if len(files) > 5:
+                return Response({"error": "Maksimal 5 foto"}, status=400)
+
+            for file in files:
+                # Validasi ukuran file (maks 5MB)
+                if file.size > 5 * 1024 * 1024:
+                    return Response({"error": "Ukuran file maksimal 5MB"}, status=400)
+
+                # Validasi tipe file
+                if not file.content_type.startswith('image/'):
+                    return Response({"error": "File harus berupa gambar"}, status=400)
+
             for file in files:
                 FotoBuktiBullying.objects.create(
                     laporan=laporan,
