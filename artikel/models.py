@@ -1,9 +1,18 @@
 from django.db import models
+from django.core.validators import MinLengthValidator, MaxLengthValidator
 
 import uuid
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+
+# Character validation constants
+JUDUL_MIN_CHARS = 5
+JUDUL_MAX_CHARS = 70
+KONTEN_MIN_CHARS = 400
+KONTEN_MAX_CHARS = 10000
+RINGKASAN_MIN_CHARS = 5
+RINGKASAN_MAX_CHARS = 150
 
 
 def artikel_foto_upload_path(instance, filename):
@@ -24,9 +33,18 @@ class Artikel(models.Model):
         editable=False
     )
 
-    judul = models.CharField(max_length=255)
-    ringkasan = models.TextField(blank=True, null=True)
-    konten = models.TextField()
+    judul = models.CharField(
+        max_length=JUDUL_MAX_CHARS,
+        validators=[MinLengthValidator(JUDUL_MIN_CHARS)]
+    )
+    ringkasan = models.TextField(
+        blank=True,
+        null=True,
+        validators=[MaxLengthValidator(RINGKASAN_MAX_CHARS)]
+    )
+    konten = models.TextField(
+        validators=[MinLengthValidator(KONTEN_MIN_CHARS), MaxLengthValidator(KONTEN_MAX_CHARS)]
+    )
 
     gambar = models.ImageField(
         upload_to='artikel/',

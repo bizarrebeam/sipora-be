@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Artikel
+from .models import Artikel, JUDUL_MIN_CHARS, JUDUL_MAX_CHARS, KONTEN_MIN_CHARS, KONTEN_MAX_CHARS, RINGKASAN_MIN_CHARS, RINGKASAN_MAX_CHARS
 
 
 class ArtikelSerializer(serializers.ModelSerializer):
@@ -28,19 +28,40 @@ class ArtikelSerializer(serializers.ModelSerializer):
         ]
 
         extra_kwargs = {
-            'ringkasan': {'required': False, 'allow_null': True},
+            'judul': {'min_length': JUDUL_MIN_CHARS, 'max_length': JUDUL_MAX_CHARS},
+            'konten': {'min_length': KONTEN_MIN_CHARS, 'max_length': KONTEN_MAX_CHARS},
+            'ringkasan': {'required': False, 'allow_null': True, 'min_length': RINGKASAN_MIN_CHARS, 'max_length': RINGKASAN_MAX_CHARS},
             'gambar': {'required': False, 'allow_null': True}
         }
 
-    def validate(self, data):
-        """Validasi judul dan konten"""
-        if 'judul' in data and not data.get('judul'):
+    def validate_judul(self, value):
+        """Validasi judul min/max characters"""
+        if not value:
             raise serializers.ValidationError("Judul wajib diisi.")
+        if len(value) < JUDUL_MIN_CHARS:
+            raise serializers.ValidationError(f"Judul minimal {JUDUL_MIN_CHARS} karakter.")
+        if len(value) > JUDUL_MAX_CHARS:
+            raise serializers.ValidationError(f"Judul maksimal {JUDUL_MAX_CHARS} karakter.")
+        return value
 
-        if 'konten' in data and not data.get('konten'):
+    def validate_konten(self, value):
+        """Validasi konten min/max characters"""
+        if not value or not value.strip():
             raise serializers.ValidationError("Konten wajib diisi.")
+        if len(value) < KONTEN_MIN_CHARS:
+            raise serializers.ValidationError(f"Konten minimal {KONTEN_MIN_CHARS} karakter.")
+        if len(value) > KONTEN_MAX_CHARS:
+            raise serializers.ValidationError(f"Konten maksimal {KONTEN_MAX_CHARS} karakter.")
+        return value
 
-        return data
+    def validate_ringkasan(self, value):
+        """Validasi ringkasan min/max characters (opsional)"""
+        if value:
+            if len(value) < RINGKASAN_MIN_CHARS:
+                raise serializers.ValidationError(f"Ringkasan minimal {RINGKASAN_MIN_CHARS} karakter.")
+            if len(value) > RINGKASAN_MAX_CHARS:
+                raise serializers.ValidationError(f"Ringkasan maksimal {RINGKASAN_MAX_CHARS} karakter.")
+        return value
 
     def get_gambar_url(self, obj):
         """Return URL gambar artikel"""
