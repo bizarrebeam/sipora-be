@@ -1,6 +1,15 @@
 from rest_framework import serializers
 from datetime import datetime, date
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
+import re
+
+# Function for sanitize user input
+def sanitize_text(value):
+    # Delete script tag and dangerous character
+    value = re.sub(r'<.*?>', '', value)
+    value = re.sub(r'[<>\"\'%;()&+]', '', value)
+
+    return value.strip()
 
 # Serializer untuk foto bukti bullying
 class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
@@ -50,18 +59,30 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_judul(self, value):
+        value = sanitize_text(value)
+
         if not value:
             raise serializers.ValidationError("Judul wajib diisi")
+
+        if len(value) > 255:
+            raise serializers.ValidationError("Judul terlalu panjang")
+
         return value
 
     def validate_deskripsi(self, value):
+        value = sanitize_text(value)
+
         if not value:
             raise serializers.ValidationError("Deskripsi wajib diisi")
+
         return value
 
     def validate_lokasi(self, value):
+        value = sanitize_text(value)
+
         if not value:
             raise serializers.ValidationError("Lokasi wajib diisi")
+
         return value
 
     def validate_tanggal_kejadian(self, value):
