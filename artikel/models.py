@@ -13,6 +13,7 @@ KONTEN_MIN_CHARS = 400
 KONTEN_MAX_CHARS = 10000
 RINGKASAN_MIN_CHARS = 5
 RINGKASAN_MAX_CHARS = 150
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 
 def artikel_foto_upload_path(instance, filename):
@@ -46,12 +47,6 @@ class Artikel(models.Model):
         validators=[MinLengthValidator(KONTEN_MIN_CHARS), MaxLengthValidator(KONTEN_MAX_CHARS)]
     )
 
-    gambar = models.ImageField(
-        upload_to='artikel/',
-        blank=True,
-        null=True
-    )
-
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -66,6 +61,32 @@ class Artikel(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
+        return self.judul
+
+
+class FotoArtikel(models.Model):
+    """Model untuk menyimpan foto artikel sebagai entitas terpisah"""
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    artikel = models.ForeignKey(
+        Artikel,
+        on_delete=models.CASCADE,
+        related_name='foto_artikel'
+    )
+    foto = models.ImageField(upload_to=artikel_foto_upload_path)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+        verbose_name = 'Foto Artikel'
+        verbose_name_plural = 'Foto Artikel'
+
+    def __str__(self):
+        return f"Foto untuk {self.artikel.judul}"
         return self.judul
 
 class FotoBuktiPendukung(models.Model):    
