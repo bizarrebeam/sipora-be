@@ -5,7 +5,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 from .models import Artikel
-from .serializers import ArtikelSerializer
+from .serializers import ArtikelSerializer, CreateArtikelSerializer
 from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
 
@@ -59,11 +59,15 @@ class ArtikelListCreateView(APIView):
     # PBI-47: Create artikel - restricted to authenticated kemahasiswaan
     @role_required(['kemahasiswaan'])
     def post(self, request):
-        # TAMBAHKAN CONTEXT REQUEST SAAT INISIALISASI
-        serializer = ArtikelSerializer(data=request.data, context={'request': request})
+        # Use CreateArtikelSerializer for handling foto_artikel
+        serializer = CreateArtikelSerializer(data=request.data, context={'request': request})
+
 
         if serializer.is_valid():
             artikel = serializer.save()
+            
+            # Return data with ArtikelSerializer to include foto_urls
+            response_serializer = ArtikelSerializer(artikel, context={'request': request})
 
             catat_log(
                 user=request.user,
@@ -74,13 +78,13 @@ class ArtikelListCreateView(APIView):
 
             return Response({
                 "message": "Artikel berhasil dibuat",
-                "data": serializer.data
+                "data": response_serializer.data
             }, status=status.HTTP_201_CREATED)
 
-        return Response({
-            "message": "Validasi gagal",
-            "data": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class ArtikelDetailUpdateView(APIView):
@@ -119,8 +123,8 @@ class ArtikelDetailUpdateView(APIView):
     def put(self, request, id):
         artikel = get_object_or_404(Artikel, pk=id)
 
-        # TAMBAHKAN CONTEXT REQUEST
-        serializer = ArtikelSerializer(
+        # Gunakan CreateArtikelSerializer yang sudah support update foto
+        serializer = CreateArtikelSerializer(
             artikel,
             data=request.data,
             partial=True,
@@ -137,9 +141,11 @@ class ArtikelDetailUpdateView(APIView):
                 modul="Artikel"
             )
 
+            # Response pakai ArtikelSerializer untuk include gambar URL
+            response_serializer = ArtikelSerializer(artikel, context={'request': request})
             return Response({
                 "message": "Artikel berhasil diperbarui",
-                "data": serializer.data
+                "data": response_serializer.data
             }, status=status.HTTP_200_OK)
 
         return Response({
