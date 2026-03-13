@@ -36,6 +36,7 @@ class AspirasiSerializer(serializers.ModelSerializer):
     pengirim_username = serializers.SerializerMethodField()
     nama_lengkap = serializers.SerializerMethodField()
     kelas_pengirim = serializers.SerializerMethodField()
+    akun_terverifikasi = serializers.SerializerMethodField()
     foto_pendukung = serializers.SerializerMethodField()
     riwayat_status = RiwayatStatusSerializer(many=True, read_only=True)
 
@@ -44,7 +45,7 @@ class AspirasiSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'no_laporan', 'judul', 'kategori', 'deskripsi','status_ditandai', 
             'anonimitas', 'pelapor_info', 'pengirim_username', 'nama_lengkap',
-            'kelas_pengirim', 'tanggal_aspirasi', 'updated_at',
+            'kelas_pengirim', 'akun_terverifikasi', 'tanggal_aspirasi', 'updated_at',
             'foto_bukti', 'foto_pendukung', 'riwayat_status'
         ]
         read_only_fields = [
@@ -79,6 +80,9 @@ class AspirasiSerializer(serializers.ModelSerializer):
     
     def get_kelas_pengirim(self, obj):
         return obj.pelapor.kelas or '-' if obj.pelapor else '-'
+
+    def get_akun_terverifikasi(self, obj):
+        return getattr(obj.pelapor, 'is_verified', False)
 
     def get_foto_pendukung(self, obj):
         request = self.context.get('request')
