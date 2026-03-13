@@ -1,18 +1,27 @@
 from rest_framework import serializers
 from .models import Artikel, FotoArtikel, JUDUL_MIN_CHARS, JUDUL_MAX_CHARS, KONTEN_MIN_CHARS, KONTEN_MAX_CHARS, RINGKASAN_MIN_CHARS, RINGKASAN_MAX_CHARS, MAX_FILE_SIZE
 
+
 class FotoArtikelSerializer(serializers.ModelSerializer):
-    """Serializer untuk foto artikel"""
+    """
+    Serializer for FotoArtikel model.
+    Serializes image ID, file, and upload timestamp.
+    """
 
     class Meta:
         model = FotoArtikel
         fields = ['id', 'foto', 'uploaded_at']
         read_only_fields = ['id', 'uploaded_at']
 
-class ArtikelSerializer(serializers.ModelSerializer):
-    """Serializer untuk list dan detail artikel"""
 
-    # Selalu kembalikan list kosong jika tidak ada foto
+class ArtikelSerializer(serializers.ModelSerializer):
+    """
+    Serializer for listing and retrieving articles.
+    Includes related images, image URLs, main image, and author name.
+    Ensures image fields always return a list (empty if no images).
+    """
+
+    # Always return an empty list if there are no images
     foto_artikel = serializers.SerializerMethodField()
     foto_urls = serializers.SerializerMethodField()
     gambar = serializers.SerializerMethodField()
@@ -47,7 +56,9 @@ class ArtikelSerializer(serializers.ModelSerializer):
         }
 
     def validate_judul(self, value):
-        """Validasi judul min/max characters"""
+        """
+        Validate title for minimum and maximum character limits.
+        """
         if not value:
             raise serializers.ValidationError("Judul wajib diisi.")
         if len(value) < JUDUL_MIN_CHARS:
@@ -57,7 +68,9 @@ class ArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def validate_konten(self, value):
-        """Validasi konten min/max characters"""
+        """
+        Validate content for minimum and maximum character limits.
+        """
         if not value or not value.strip():
             raise serializers.ValidationError("Konten wajib diisi.")
         if len(value) < KONTEN_MIN_CHARS:
@@ -67,7 +80,9 @@ class ArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def validate_ringkasan(self, value):
-        """Validasi ringkasan min/max characters (opsional)"""
+        """
+        Validate summary for minimum and maximum character limits (optional).
+        """
         if value:
             if len(value) < RINGKASAN_MIN_CHARS:
                 raise serializers.ValidationError(f"Ringkasan minimal {RINGKASAN_MIN_CHARS} karakter.")
@@ -76,11 +91,15 @@ class ArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def get_foto_artikel(self, obj):
-        """Selalu kembalikan list foto artikel (bisa kosong)"""
+        """
+        Always return a list of related images (can be empty).
+        """
         return FotoArtikelSerializer(obj.foto_artikel.all(), many=True, context=self.context).data
 
     def get_foto_urls(self, obj):
-        """Selalu kembalikan list URL foto artikel (bisa kosong)"""
+        """
+        Always return a list of image URLs (can be empty).
+        """
         request = self.context.get('request')
         foto_list = []
         for foto in obj.foto_artikel.all():
@@ -90,7 +109,9 @@ class ArtikelSerializer(serializers.ModelSerializer):
         return foto_list
 
     def get_gambar(self, obj):
-        """Return URL foto pertama sebagai gambar utama artikel (atau None)"""
+        """
+        Return the URL of the first image as the main article image (or None).
+        """
         request = self.context.get('request')
         foto = obj.foto_artikel.first()
         if foto and foto.foto and hasattr(foto.foto, 'url'):
@@ -98,12 +119,18 @@ class ArtikelSerializer(serializers.ModelSerializer):
         return None
 
     def get_nama_penulis(self, obj):
-        """Return nama penulis (placeholder: Tim Kemahasiswaan)"""
+        """
+        Return the author name (currently a placeholder: 'Tim Kemahasiswaan').
+        """
         return 'Tim Kemahasiswaan'
 
 
+
 class CreateArtikelSerializer(serializers.ModelSerializer):
-    """Serializer untuk create artikel dengan foto cover (single image)"""
+    """
+    Serializer for creating articles with a cover image (single image).
+    Handles image validation, summary auto-generation, and field validation.
+    """
 
     foto_artikel = serializers.ImageField(
         write_only=True,
@@ -125,7 +152,10 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         }
 
     def _auto_summary(self, konten, ringkasan):
-        """Ambil ringkasan dari paragraf pertama konten, potong jika perlu."""
+        """
+        Generate a summary from the first paragraph of content if not provided.
+        Truncate and add ellipsis if too long.
+        """
         if not ringkasan and konten:
             paragraphs = [p.strip() for p in konten.split('\n') if p.strip()]
             if paragraphs:
@@ -138,7 +168,9 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return ringkasan
 
     def to_internal_value(self, data):
-        # Fix QueryDict immutable error by copying data if needed
+        """
+        Ensure summary is auto-generated and QueryDict is copied if needed.
+        """
         if hasattr(data, 'copy'):
             data = data.copy()
         konten = data.get('konten', '')
@@ -147,14 +179,18 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def update(self, instance, validated_data):
-        # Otomatis isi ringkasan jika kosong atau terlalu panjang saat update
+        """
+        Ensure summary is auto-generated or truncated on update.
+        """
         konten = validated_data.get('konten', instance.konten)
         ringkasan = validated_data.get('ringkasan', validated_data.get('ringkasan', instance.ringkasan))
         validated_data['ringkasan'] = self._auto_summary(konten, ringkasan)
         return super().update(instance, validated_data)
 
     def validate_judul(self, value):
-        """Validasi judul min/max characters"""
+        """
+        Validate title for minimum and maximum character limits.
+        """
         if not value:
             raise serializers.ValidationError("Judul wajib diisi.")
         if len(value) < JUDUL_MIN_CHARS:
@@ -164,7 +200,9 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def validate_konten(self, value):
-        """Validasi konten min/max characters"""
+        """
+        Validate content for minimum and maximum character limits.
+        """
         if not value or not value.strip():
             raise serializers.ValidationError("Konten wajib diisi.")
         if len(value) < KONTEN_MIN_CHARS:
@@ -174,7 +212,9 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def validate_ringkasan(self, value):
-        """Validasi ringkasan min/max characters (opsional)"""
+        """
+        Validate summary for minimum and maximum character limits (optional).
+        """
         if value:
             if len(value) < RINGKASAN_MIN_CHARS:
                 raise serializers.ValidationError(f"Ringkasan minimal {RINGKASAN_MIN_CHARS} karakter.")
@@ -183,7 +223,9 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def validate_foto_artikel(self, value):
-        """Validate foto cover artikel (single file, max 5MB)"""
+        """
+        Validate cover image (single file, max 5MB, allowed types only).
+        """
         if value is None:
             return value
 
@@ -201,7 +243,9 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        """Create artikel dan simpan foto cover ke FotoArtikel"""
+        """
+        Create an article and save the cover image to FotoArtikel.
+        """
         foto = validated_data.pop('foto_artikel', None)
         artikel = Artikel.objects.create(**validated_data)
 
@@ -211,7 +255,9 @@ class CreateArtikelSerializer(serializers.ModelSerializer):
         return artikel
 
     def update(self, instance, validated_data):
-        """Update artikel, ganti foto cover jika ada yang baru"""
+        """
+        Update an article, replace cover image if a new one is provided.
+        """
         foto = validated_data.pop('foto_artikel', None)
 
         for attr, value in validated_data.items():
