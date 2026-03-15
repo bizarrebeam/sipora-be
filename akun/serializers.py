@@ -92,9 +92,15 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pengguna
-        fields = ('nuptk', 'nama_lengkap', 'password')
+        fields = ('username', 'nuptk', 'nama_lengkap', 'password')
+        extra_kwargs = {
+            'username': {'required': True},
+            'nuptk': {'required': False, 'allow_null': True, 'allow_blank': True}
+        }
 
     def validate_nuptk(self, value):
+        if not value:
+            return None
         if not value.isdigit() or len(value) != 16:
             raise serializers.ValidationError("NUPTK harus terdiri dari 16 digit angka.")
         if Pengguna.objects.filter(nuptk=value).exists():
@@ -103,8 +109,8 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Pengguna.objects.create_user(
-            username=validated_data['nuptk'],
-            nuptk=validated_data['nuptk'],
+            username=validated_data['username'],
+            nuptk=validated_data.get('nuptk'),
             nama_lengkap=validated_data['nama_lengkap'],
             mata_pelajaran='Bimbingan Konseling',
             password=validated_data['password'],
