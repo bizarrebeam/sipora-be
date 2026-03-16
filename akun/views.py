@@ -14,6 +14,8 @@ from .serializers import (
     PenggunaSerializer,
     EditProfilSerializer,
     UbahPasswordSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
 )
 from .models import Pengguna
 from .decorators import role_required
@@ -29,7 +31,7 @@ class SeedDatabaseView(APIView):
         if not settings.DEBUG:
             return Response(
                 {"error": "Endpoint ini hanya tersedia di mode development."},
-                status=status.HTTP_404_NOT_FOUND
+                status=404
             )
         try:
             call_command('flush', interactive=False)
@@ -55,7 +57,7 @@ class RegisterSiswaView(APIView):
             catat_log(
                 user=user,
                 aksi='BUAT_AKUN',
-                deskripsi=f'Akun Siswa dibuat untuk {user.nama_lengkap} ({user.nisn}).',
+                deskripsi=f'Akun Siswa dibuat untuk {user.nama_lengkap} (NIS: {user.nis}).',
                 modul='akun',
                 ip_address=ip
             )
@@ -226,10 +228,45 @@ class UbahPasswordView(APIView):
         serializer = UbahPasswordSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            # WBS Standard: Password changes are not logged in Audit Log to avoid spam.
             return Response({"message": "Password berhasil diubah."})
         return Response(serializer.errors, status=400)
 
+
+# ─── Forgot Password ──────────────────────────────────────────────────────────
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            masked_email = serializer.save()
+            return Response({
+                "message": f"Email reset password sudah dikirimkan ke {masked_email}",
+                "masked_email": masked_email,
+            })
+        return Response(serializer.errors, status=400)
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            catat_log(
+                user=user,
+                aksi='RESET_PASSWORD',
+                deskripsi=f'Password direset melalui email untuk {user.nama_lengkap} (NIS: {user.nis}).',
+                modul='akun',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            return Response({"message": "Password berhasil diubah. Silakan login dengan password baru."})
+        return Response(serializer.errors, status=400)
+
+
+# ─── Admin Account Management ─────────────────────────────────────────────────
 
 class AdminBuatAkunView(APIView):
     permission_classes = [IsAuthenticated]
@@ -270,7 +307,7 @@ class AdminDaftarAkunView(APIView):
         if search:
             base_qs = base_qs.filter(
                 Q(nama_lengkap__icontains=search) |
-                Q(nisn__icontains=search) |
+                Q(nis__icontains=search) |
                 Q(nuptk__icontains=search) |
                 Q(username__icontains=search)
             )
@@ -304,4 +341,36 @@ class AdminDaftarAkunView(APIView):
                 "total": guru_bk_qs.count(),
                 "data": PenggunaSerializer(guru_bk_qs, many=True).data,
             },
+        })
+
+
+# ─── Admin: Verify Student ────────────────────────────────────────────────────
+
+class AdminVerifikasiSiswaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required('kemahasiswaan')
+    def post(self, request, user_id):
+        try:
+            siswa = Pengguna.objects.get(pk=user_id, role='siswa')
+        except Pengguna.DoesNotExist:
+            return Response({"detail": "Siswa tidak ditemukan."}, status=404)
+
+        if siswa.is_verified:
+            return Response({"detail": "Siswa ini sudah terverifikasi."}, status=400)
+
+        siswa.is_verified = True
+        siswa.save()
+
+        catat_log(
+            user=request.user,
+            aksi='VERIFIKASI_AKUN',
+            deskripsi=f'Admin memverifikasi akun siswa: {siswa.nama_lengkap} (NIS: {siswa.nis}, Kelas: {siswa.kelas or "-"}).',
+            modul='akun',
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+
+        return Response({
+            "message": f"Akun siswa {siswa.nama_lengkap} berhasil diverifikasi.",
+            "data": PenggunaSerializer(siswa).data,
         })
