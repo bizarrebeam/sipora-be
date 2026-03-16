@@ -24,7 +24,7 @@ class DaftarLogView(APIView):
         if search:
             queryset = queryset.filter(
                 Q(pengguna__nama_lengkap__icontains=search) |
-                Q(pengguna__nisn__icontains=search) |
+                Q(pengguna__nis__icontains=search) |
                 Q(pengguna__nuptk__icontains=search) |
                 Q(aksi__icontains=search) |
                 Q(deskripsi__icontains=search) |

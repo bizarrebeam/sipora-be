@@ -11,6 +11,9 @@ from .views import (
     AdminDaftarAkunView,
     CookieTokenRefreshView,
     SeedDatabaseView,
+    ForgotPasswordView,
+    ResetPasswordView,
+    AdminVerifikasiSiswaView,
 )
 
 urlpatterns = [
@@ -23,5 +26,8 @@ urlpatterns = [
     path('me/password/', UbahPasswordView.as_view()),
     path('admin/buat/', AdminBuatAkunView.as_view()),
     path('admin/daftar/', AdminDaftarAkunView.as_view()),
+    path('admin/verifikasi-siswa/<uuid:user_id>/', AdminVerifikasiSiswaView.as_view()),
+    path('forgot-password/', ForgotPasswordView.as_view()),
+    path('reset-password/', ResetPasswordView.as_view()),
     path('token/refresh/', CookieTokenRefreshView.as_view()),
 ]
