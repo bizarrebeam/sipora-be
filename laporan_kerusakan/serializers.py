@@ -104,8 +104,6 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
     pelapor_info = serializers.SerializerMethodField()
     pengirim_username = serializers.SerializerMethodField()
     nama_lengkap = serializers.SerializerMethodField()
-    kelas_pengirim = serializers.SerializerMethodField()
-    akun_terverifikasi = serializers.SerializerMethodField()
     foto_pendukung = serializers.SerializerMethodField()
     riwayat_status = RiwayatStatusSerializer(many=True, read_only=True)
 
@@ -115,8 +113,7 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
             'id', 'no_laporan', 'judul', 'deskripsi', 'lokasi',
             'tanggal_kejadian', 'status', 'catatan_admin',
             'anonimitas', 'pelapor_info', 'pengirim_username', 'nama_lengkap',
-            'kelas_pengirim', 'akun_terverifikasi', 'tanggal_laporan', 'updated_at',
-            'foto_bukti', 'foto_pendukung', 'riwayat_status'
+            'tanggal_laporan', 'updated_at', 'foto_bukti', 'foto_pendukung'
         ]
         read_only_fields = [
             'id', 'no_laporan', 'tanggal_laporan', 'updated_at'
@@ -148,12 +145,6 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
             return f'Anonim dari Kelas {kelas}'
         return obj.pelapor.nama_lengkap if obj.pelapor else None
     
-    def get_kelas_pengirim(self, obj):
-        return obj.pelapor.kelas or '-' if obj.pelapor else '-'
-
-    def get_akun_terverifikasi(self, obj):
-        return getattr(obj.pelapor, 'is_verified', False)
-
     def get_foto_pendukung(self, obj):
         request = self.context.get('request')
         foto_list = []
