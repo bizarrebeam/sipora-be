@@ -49,6 +49,26 @@ class BuatLaporanBullyingView(APIView):
                 catatan="Laporan dibuat"
             )
 
+            # Log activity
+            ip = request.META.get('REMOTE_ADDR')
+            if laporan.anonimitas:
+                kelas = request.user.kelas or '-'
+                catat_log(
+                    None,
+                    'BUAT_LAPORAN',
+                    f"Anonim dari Kelas {kelas} membuat laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
+            else:
+                catat_log(
+                    request.user,
+                    'BUAT_LAPORAN',
+                    f"Membuat laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
+
             return Response({
                 "message": "Laporan berhasil dibuat",
                 "data": serializer.data
@@ -188,7 +208,7 @@ class ListLaporanBullyingView(APIView):
         # Filter berdasarkan tanggal kejadian
         date_filter = request.query_params.get('date')
         if date_filter:
-            laporan = laporan.filter(tanggal_kejadian__date=date_filter)
+            laporan = laporan.filter(tanggal_kejadian=date_filter)
 
         # Sort berdasarkan keterbaharuan
         sort_order = request.query_params.get('sort')
