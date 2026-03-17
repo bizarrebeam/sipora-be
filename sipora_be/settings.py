@@ -31,6 +31,10 @@ INSTALLED_APPS = [
     'core',
     'akun',
     'log_aktivitas',
+    'laporan_kerusakan',
+    'aspirasi',
+    'laporan_bullying',
+    'artikel',
 ]
 
 AUTH_USER_MODEL = 'akun.Pengguna'
@@ -88,7 +92,6 @@ else:
         }
     }
 
-print(f"[STARTUP] PRODUCTION={PRODUCTION}, DB_ENGINE={DATABASES['default']['ENGINE']}")
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -113,6 +116,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -121,16 +127,23 @@ CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'core.authentication.CookieJWTAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'core.renderers.CoreJSONRenderer',
     ],
     'EXCEPTION_HANDLER': 'core.exceptions.core_exception_handler',
 }
+
+AUTH_COOKIE = 'access_token'
+AUTH_COOKIE_REFRESH = 'refresh_token'
+AUTH_COOKIE_SECURE = PRODUCTION
+AUTH_COOKIE_HTTP_ONLY = True
+AUTH_COOKIE_PATH = '/'
+AUTH_COOKIE_SAMESITE = 'None' if PRODUCTION else 'Lax'
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
@@ -139,3 +152,22 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# ─── Email Configuration ──────────────────────────────────────────────────────
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{EMAIL_HOST_USER}>')
+
+if EMAIL_USE_CONSOLE_BACKEND:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Frontend URL for password reset links
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
+# Password reset token expiry (1 hour)
+PASSWORD_RESET_TIMEOUT = 3600
