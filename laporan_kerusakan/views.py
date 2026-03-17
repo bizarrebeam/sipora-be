@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db import models
+from django.utils.dateparse import parse_date
 
 from .models import LaporanKerusakan, RiwayatStatusLaporan
 from .serializers import (
@@ -93,7 +94,7 @@ class LaporanKerusakanListView(APIView):
             laporan_list = LaporanKerusakan.objects.filter(pelapor=user)
         
         status_filter = request.query_params.get('status')
-        if status_filter:
+        if status_filter and status_filter != 'semua':
             laporan_list = laporan_list.filter(status=status_filter)
         
         search = request.query_params.get('search')
@@ -104,8 +105,54 @@ class LaporanKerusakanListView(APIView):
                 models.Q(lokasi__icontains=search) |
                 models.Q(deskripsi__icontains=search)
             )
-        
-        laporan_list = laporan_list.order_by('-tanggal_laporan')
+
+        date_filter = request.query_params.get('date')
+        if date_filter:
+            parsed_date = parse_date(date_filter)
+            if not parsed_date:
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'Parameter date harus berformat YYYY-MM-DD',
+                        'data': None
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            laporan_list = laporan_list.filter(tanggal_kejadian=parsed_date)
+
+        start_date = request.query_params.get('start_date')
+        if start_date:
+            parsed_start_date = parse_date(start_date)
+            if not parsed_start_date:
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'Parameter start_date harus berformat YYYY-MM-DD',
+                        'data': None
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            laporan_list = laporan_list.filter(tanggal_kejadian__gte=parsed_start_date)
+
+        end_date = request.query_params.get('end_date')
+        if end_date:
+            parsed_end_date = parse_date(end_date)
+            if not parsed_end_date:
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'Parameter end_date harus berformat YYYY-MM-DD',
+                        'data': None
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            laporan_list = laporan_list.filter(tanggal_kejadian__lte=parsed_end_date)
+
+        sort_order = request.query_params.get('sort')
+        if sort_order == 'asc':
+            laporan_list = laporan_list.order_by('tanggal_laporan')
+        else:
+            laporan_list = laporan_list.order_by('-tanggal_laporan')
         
         serializer = LaporanKerusakanSerializer(
             laporan_list, 
