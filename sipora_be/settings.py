@@ -188,3 +188,20 @@ if EMAIL_USE_CONSOLE_BACKEND:
 
 # Password reset token expiry (1 hour)
 PASSWORD_RESET_TIMEOUT = 3600
+
+# ─── Railway/Docker IPv4 Fix ──────────────────────────────────────────────────
+# Force IPv4 for SMTP to avoid 'Network is unreachable' errors on IPv6-resolved hosts
+if PRODUCTION:
+    import socket
+    import smtplib
+    
+    # Backup original
+    orig_getaddrinfo = socket.getaddrinfo
+
+    def forced_ipv4_getaddrinfo(*args, **kwargs):
+        # Force family to AF_INET (IPv4)
+        if len(args) > 0 and 'googlemail' in str(args[0]) or 'gmail' in str(args[0]):
+            return orig_getaddrinfo(args[0], args[1], socket.AF_INET, socket.SOCK_STREAM)
+        return orig_getaddrinfo(*args, **kwargs)
+
+    socket.getaddrinfo = forced_ipv4_getaddrinfo
