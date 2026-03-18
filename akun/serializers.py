@@ -265,22 +265,27 @@ class ForgotPasswordSerializer(serializers.Serializer):
         user = self.user
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+        
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        reset_link = f"{frontend_url}/reset-password/{uid}/{token}"
 
-        send_mail(
-            subject='[SIPORA] Reset Password Akunmu',
-            message=(
-                f'Halo {user.nama_lengkap},\n\n'
-                f'Kamu meminta reset password untuk akun SIPORA-mu.\n'
-                f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
-                f'{reset_link}\n\n'
-                f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
-                f'Salam,\nTim SIPORA SMP Desa Putera'
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject='[SIPORA] Reset Password Akunmu',
+                message=(
+                    f'Halo {user.nama_lengkap},\n\n'
+                    f'Kamu meminta reset password untuk akun SIPORA-mu.\n'
+                    f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
+                    f'{reset_link}\n\n'
+                    f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
+                    f'Salam,\nTim SIPORA SMP Desa Putera'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            raise serializers.ValidationError({"error": f"Gagal mengirim email instruksi. Pastikan konfigurasi SMTP pada server berjalan dengan baik. Detail: {str(e)}"})
 
         return mask_email(user.email)
 

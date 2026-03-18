@@ -121,7 +121,20 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+FRONTEND_ORIGIN = FRONTEND_URL.rstrip('/')
+
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_ORIGIN,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    FRONTEND_ORIGIN,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -165,9 +178,6 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{
 
 if EMAIL_USE_CONSOLE_BACKEND:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# Frontend URL for password reset links
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
 # Password reset token expiry (1 hour)
 PASSWORD_RESET_TIMEOUT = 3600
