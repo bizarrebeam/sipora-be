@@ -121,19 +121,22 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+# Konfigurasi CORS & CSRF 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://sipora-fe.vercel.app')
 FRONTEND_ORIGIN = FRONTEND_URL.rstrip('/')
 
 CORS_ALLOWED_ORIGINS = [
     FRONTEND_ORIGIN,
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://sipora-fe.vercel.app",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     FRONTEND_ORIGIN,
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://sipora-fe.vercel.app",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
