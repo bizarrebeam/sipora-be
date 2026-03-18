@@ -282,7 +282,9 @@ class ForgotPasswordSerializer(serializers.Serializer):
                     fail_silently=False,
                 )
             except Exception as e:
+                import traceback
                 print(f"SMTP Background Task Error: {str(e)}")
+                traceback.print_exc()
 
         threading.Thread(target=send_email_thread).start()
 

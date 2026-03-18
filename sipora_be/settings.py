@@ -4,7 +4,9 @@ from dotenv import load_dotenv
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
+# Only load .env if it exists and we're not in production/Railway
+if not os.getenv('RAILWAY_STATIC_URL'):
+    load_dotenv(os.path.join(BASE_DIR, '.env'), override=False)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
@@ -173,8 +175,10 @@ SIMPLE_JWT = {
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{EMAIL_HOST_USER}>')
