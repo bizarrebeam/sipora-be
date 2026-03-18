@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
@@ -217,11 +218,16 @@ class ListLaporanBullyingView(APIView):
         elif sort_order == 'desc':
             laporan = laporan.order_by('-tanggal_laporan')
 
-        if not laporan.exists():
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginator.page_size_query_param = 'page_size'
+        result_page = paginator.paginate_queryset(laporan, request)
+        
+        if not result_page and not laporan.exists():
             return Response({"message": "Belum ada laporan yang dikirimkan."}, status=200)
 
-        serializer = LaporanBullyingListSerializer(laporan, many=True)
-        return Response(serializer.data)
+        serializer = LaporanBullyingListSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 # Fungsi untuk melihat detail laporan bullying
 class DetailLaporanBullyingView(APIView):
