@@ -5,6 +5,7 @@ from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer, RiwayatStatusBullyingSerializer
+from django.db.models import Q
 
 # Fungsi untuk membuat laporan bullying
 class BuatLaporanBullyingView(APIView):
@@ -198,7 +199,6 @@ class ListLaporanBullyingView(APIView):
         # Filter berdasarkan pencarian
         search_query = request.query_params.get('search')
         if search_query:
-            from django.db.models import Q
             laporan = laporan.filter(
                 Q(judul__icontains=search_query) |
                 Q(lokasi__icontains=search_query) |
