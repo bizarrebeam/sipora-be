@@ -87,6 +87,21 @@ class LaporanKerusakanListView(APIView):
     
     def get(self, request):
         user = request.user
+
+        if user.role not in ['siswa', 'guru', 'kemahasiswaan']:
+            return Response(
+                {
+                    'status': 'success',
+                    'message': 'Anda tidak memiliki akses untuk melakukan aksi ini.',
+                    'data': {
+                        'total': 0,
+                        'laporan': [],
+                        'access_denied': True,
+                        'access_message': 'Anda tidak memiliki akses untuk melakukan aksi ini.'
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
         
         if user.role == 'kemahasiswaan':
             laporan_list = LaporanKerusakan.objects.all()
@@ -166,7 +181,9 @@ class LaporanKerusakanListView(APIView):
                 'message': 'Berhasil mengambil data laporan',
                 'data': {
                     'total': laporan_list.count(),
-                    'laporan': serializer.data
+                    'laporan': serializer.data,
+                    'access_denied': False,
+                    'access_message': None
                 }
             },
             status=status.HTTP_200_OK
