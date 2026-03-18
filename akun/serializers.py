@@ -60,7 +60,7 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pengguna
-        fields = ('nuptk', 'nama_lengkap', 'mata_pelajaran', 'password')
+        fields = ('nuptk', 'email', 'nama_lengkap', 'mata_pelajaran', 'password')
 
     def validate_nuptk(self, value):
         if not value.isdigit() or len(value) != 16:
@@ -68,6 +68,13 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         if Pengguna.objects.filter(nuptk=value).exists():
             raise serializers.ValidationError("NUPTK sudah terdaftar.")
         return value
+
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email wajib diisi.")
+        if Pengguna.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email sudah terdaftar.")
+        return value.strip().lower()
 
     def validate_mata_pelajaran(self, value):
         if not value or not value.strip():
@@ -78,6 +85,7 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         return Pengguna.objects.create_user(
             username=validated_data['nuptk'],
             nuptk=validated_data['nuptk'],
+            email=validated_data['email'],
             nama_lengkap=validated_data['nama_lengkap'],
             mata_pelajaran=validated_data['mata_pelajaran'],
             password=validated_data['password'],
@@ -93,10 +101,11 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pengguna
-        fields = ('username', 'nuptk', 'nama_lengkap', 'password')
+        fields = ('username', 'nuptk', 'email', 'nama_lengkap', 'password')
         extra_kwargs = {
             'username': {'required': True},
-            'nuptk': {'required': False, 'allow_null': True, 'allow_blank': True}
+            'nuptk': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'email': {'required': True}
         }
 
     def validate_nuptk(self, value):
@@ -108,10 +117,18 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("NUPTK sudah terdaftar.")
         return value
 
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email wajib diisi.")
+        if Pengguna.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email sudah terdaftar.")
+        return value.strip().lower()
+
     def create(self, validated_data):
         return Pengguna.objects.create_user(
             username=validated_data['username'],
             nuptk=validated_data.get('nuptk'),
+            email=validated_data['email'],
             nama_lengkap=validated_data['nama_lengkap'],
             mata_pelajaran='Bimbingan Konseling',
             password=validated_data['password'],
