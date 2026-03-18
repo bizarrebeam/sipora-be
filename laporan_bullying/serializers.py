@@ -122,6 +122,7 @@ class LaporanBullyingListSerializer(serializers.ModelSerializer):
         return getattr(obj.pelapor, 'kelas', None)
 
 class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
+    pelapor = serializers.IntegerField(source='pelapor.id', read_only=True)
     foto_bukti = FotoBuktiBullyingSerializer(many=True, read_only=True)
     nama_pengirim = serializers.SerializerMethodField()
     akun_terverifikasi = serializers.BooleanField(source='pelapor.is_verified', read_only=True)
@@ -132,6 +133,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
         model = LaporanBullying
         fields = [
             'id',
+            'pelapor',
             'no_laporan',
             'nama_pengirim',
             'kelas',
