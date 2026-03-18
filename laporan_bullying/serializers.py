@@ -40,6 +40,11 @@ class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
 
     def get_user(self, obj):
         if obj.diubah_oleh:
+            if obj.laporan.anonimitas and obj.diubah_oleh == obj.laporan.pelapor:
+                return {
+                    'id': obj.diubah_oleh.id,
+                    'nama': 'Pengguna Anonim'
+                }
             return {
                 'id': obj.diubah_oleh.id,
                 'nama': getattr(obj.diubah_oleh, 'nama_lengkap', 'Admin')
