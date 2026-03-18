@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
+from django.db import IntegrityError
 from django.db.models import Q
 from django.conf import settings
 
@@ -283,7 +284,18 @@ class AdminBuatAkunView(APIView):
             return Response({"detail": "role_type harus 'guru' atau 'guru_bk'."}, status=400)
 
         if serializer.is_valid():
-            user = serializer.save()
+            try:
+                user = serializer.save()
+            except IntegrityError as e:
+                error_msg = str(e).lower()
+                if 'email' in error_msg:
+                    return Response({"email": ["Email sudah terdaftar."]}, status=400)
+                if 'username' in error_msg:
+                    return Response({"username": ["Username sudah terdaftar."]}, status=400)
+                if 'nuptk' in error_msg:
+                    return Response({"nuptk": ["NUPTK sudah terdaftar."]}, status=400)
+                return Response({"detail": "Gagal membuat akun karena konflik data di database."}, status=400)
+
             catat_log(
                 user=request.user,
                 aksi='BUAT_AKUN',
