@@ -317,7 +317,10 @@ class AdminDaftarAkunView(APIView):
         role = request.query_params.get('role', '').strip()
         is_verified = request.query_params.get('is_verified', '').strip()
 
-        base_qs = Pengguna.objects.all()
+        base_qs = Pengguna.objects.only(
+            'id', 'nama_lengkap', 'nis', 'nuptk', 'username', 'role', 'kelas', 
+            'mata_pelajaran', 'is_verified', 'date_joined'
+        ).all()
         if search:
             base_qs = base_qs.filter(
                 Q(nama_lengkap__icontains=search) |
@@ -344,8 +347,10 @@ class AdminDaftarAkunView(APIView):
         base_qs = base_qs.order_by(ordering)
 
         paginator = PageNumberPagination()
-        # Allow dynamic page size if present, but default to 10
-        paginator.page_size = int(request.query_params.get('page_size', 10))
+        # Allow dynamic page size if present, but default to 10, max 100
+        page_size = int(request.query_params.get('page_size', 10))
+        page_size = min(page_size, 100)  # Limit max to 100 per page
+        paginator.page_size = page_size
         
         result_page = paginator.paginate_queryset(base_qs, request)
         serializer = PenggunaSerializer(result_page, many=True)

@@ -16,7 +16,10 @@ class DaftarLogView(APIView):
         tanggal = request.query_params.get('tanggal', '').strip()
         modul = request.query_params.get('modul', '').strip()
 
-        queryset = LogAktivitas.objects.select_related('pengguna').all()
+        queryset = LogAktivitas.objects.select_related('pengguna').only(
+            'id', 'aksi', 'deskripsi', 'waktu', 'modul',
+            'pengguna__id', 'pengguna__nama_lengkap', 'pengguna__role'
+        ).all()
 
         if modul and modul != 'semua':
             queryset = queryset.filter(modul__iexact=modul)
@@ -36,7 +39,9 @@ class DaftarLogView(APIView):
             queryset = queryset.filter(waktu__date=tanggal)
 
         paginator = PageNumberPagination()
-        paginator.page_size = int(request.query_params.get('page_size', 10))
+        page_size = int(request.query_params.get('page_size', 10))
+        page_size = min(page_size, 100)  # Limit max to 100 per page
+        paginator.page_size = page_size
         result_page = paginator.paginate_queryset(queryset, request)
         serializer = LogAktivitasSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
