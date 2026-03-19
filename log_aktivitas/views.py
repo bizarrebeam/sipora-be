@@ -36,7 +36,7 @@ class DaftarLogView(APIView):
             queryset = queryset.filter(waktu__date=tanggal)
 
         paginator = PageNumberPagination()
-        paginator.page_size = 20
+        paginator.page_size = int(request.query_params.get('page_size', 10))
         result_page = paginator.paginate_queryset(queryset, request)
         serializer = LogAktivitasSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
