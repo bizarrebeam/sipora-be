@@ -187,6 +187,12 @@ class PenggunaSerializer(serializers.ModelSerializer):
     tahun_ajaran = serializers.SerializerMethodField()
     semester = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Cache at serializer instance level (same for all objects)
+        self._tahun_ajaran_cache = get_tahun_ajaran()
+        self._semester_cache = get_semester()
+
     class Meta:
         model = Pengguna
         fields = (
@@ -196,10 +202,10 @@ class PenggunaSerializer(serializers.ModelSerializer):
         )
 
     def get_tahun_ajaran(self, obj):
-        return get_tahun_ajaran()
+        return self._tahun_ajaran_cache
 
     def get_semester(self, obj):
-        return get_semester()
+        return self._semester_cache
 
 
 # ─── Edit Profile ──────────────────────────────────────────────────────────────

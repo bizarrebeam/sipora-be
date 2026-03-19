@@ -25,10 +25,10 @@ class Pengguna(AbstractUser):
     ]
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, db_index=True)
-    nis = models.CharField(max_length=4, null=True, blank=True, unique=True)
-    nuptk = models.CharField(max_length=16, null=True, blank=True, unique=True)
-    nama_lengkap = models.CharField(max_length=255)
-    email = models.EmailField('email address', max_length=254, null=True, blank=True, unique=True)
+    nis = models.CharField(max_length=4, null=True, blank=True, unique=True, db_index=True)
+    nuptk = models.CharField(max_length=16, null=True, blank=True, unique=True, db_index=True)
+    nama_lengkap = models.CharField(max_length=255, db_index=True)
+    email = models.EmailField('email address', max_length=254, null=True, blank=True, unique=True, db_index=True)
     kelas = models.CharField(max_length=5, choices=KELAS_CHOICES, null=True, blank=True)
     mata_pelajaran = models.CharField(max_length=255, null=True, blank=True)
     is_verified = models.BooleanField(default=False, db_index=True)
