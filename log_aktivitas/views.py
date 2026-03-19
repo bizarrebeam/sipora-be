@@ -18,7 +18,8 @@ class DaftarLogView(APIView):
 
         queryset = LogAktivitas.objects.select_related('pengguna').only(
             'id', 'aksi', 'deskripsi', 'waktu', 'modul',
-            'pengguna__id', 'pengguna__nama_lengkap', 'pengguna__role'
+            'pengguna__id', 'pengguna__nama_lengkap', 'pengguna__role',
+            'pengguna__nis', 'pengguna__nuptk'
         ).all()
 
         if modul and modul != 'semua':
@@ -30,7 +31,6 @@ class DaftarLogView(APIView):
                 Q(pengguna__nis__icontains=search) |
                 Q(pengguna__nuptk__icontains=search) |
                 Q(aksi__icontains=search) |
-                Q(deskripsi__icontains=search) |
                 Q(modul__icontains=search)
             )
 
