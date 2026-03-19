@@ -7,9 +7,9 @@ class LogAktivitas(models.Model):
     pengguna = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     aksi = models.CharField(max_length=255)
     deskripsi = models.TextField()
-    waktu = models.DateTimeField(auto_now_add=True)
+    waktu = models.DateTimeField(auto_now_add=True, db_index=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
-    modul = models.CharField(max_length=100)
+    modul = models.CharField(max_length=100, db_index=True)
 
     def save(self, *args, **kwargs):
         if not self._state.adding:

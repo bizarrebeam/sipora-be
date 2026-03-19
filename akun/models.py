@@ -24,14 +24,14 @@ class Pengguna(AbstractUser):
         ('9A', '9A'), ('9B', '9B'),
     ]
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, db_index=True)
     nis = models.CharField(max_length=4, null=True, blank=True, unique=True)
     nuptk = models.CharField(max_length=16, null=True, blank=True, unique=True)
     nama_lengkap = models.CharField(max_length=255)
     email = models.EmailField('email address', max_length=254, null=True, blank=True, unique=True)
     kelas = models.CharField(max_length=5, choices=KELAS_CHOICES, null=True, blank=True)
     mata_pelajaran = models.CharField(max_length=255, null=True, blank=True)
-    is_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False, db_index=True)
 
     # WBS Soft Delete Logic for Acccount Deactivations
     is_deleted = models.BooleanField(default=False)
