@@ -13,6 +13,7 @@ from .serializers import (
     AdminBuatGuruBKSerializer,
     LoginSerializer,
     PenggunaSerializer,
+    PenggunaListSerializer,
     EditProfilSerializer,
     UbahPasswordSerializer,
     ForgotPasswordSerializer,
@@ -338,6 +339,14 @@ class AdminDaftarAkunView(APIView):
             # handle 'true'/'false' strings
             base_qs = base_qs.filter(is_verified=(is_verified.lower() == 'true'))
 
+        # Apply date_joined filter (YYYY-MM-DD)
+        date_joined = request.query_params.get('date_joined', '').strip()
+        if date_joined:
+            from django.utils.dateparse import parse_date
+            parsed = parse_date(date_joined)
+            if parsed:
+                base_qs = base_qs.filter(date_joined__date=parsed)
+
         # If guru_bk, can only see students
         if request.user.role == 'guru_bk':
             base_qs = base_qs.filter(role='siswa')
@@ -353,7 +362,7 @@ class AdminDaftarAkunView(APIView):
         paginator.page_size = page_size
         
         result_page = paginator.paginate_queryset(base_qs, request)
-        serializer = PenggunaSerializer(result_page, many=True)
+        serializer = PenggunaListSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 

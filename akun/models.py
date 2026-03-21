@@ -34,7 +34,7 @@ class Pengguna(AbstractUser):
     is_verified = models.BooleanField(default=False, db_index=True)
 
     # WBS Soft Delete Logic for Acccount Deactivations
-    is_deleted = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 

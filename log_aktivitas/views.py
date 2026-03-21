@@ -32,6 +32,7 @@ class DaftarLogView(APIView):
                 Q(pengguna__nuptk__icontains=search) |
                 Q(aksi__icontains=search) |
                 Q(modul__icontains=search)
+                # NOTE: deskripsi (TextField) intentionally excluded — full table scan
             )
 
         if tanggal:
