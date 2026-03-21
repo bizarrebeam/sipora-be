@@ -162,6 +162,51 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
         return foto_list if foto_list else None
 
 
+class LaporanKerusakanListSerializer(serializers.ModelSerializer):
+    """Lean serializer for list view - no foto_bukti, no riwayat_status to avoid N+1"""
+    pelapor_info = serializers.SerializerMethodField()
+    nama_lengkap = serializers.SerializerMethodField()
+    akun_terverifikasi = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LaporanKerusakan
+        fields = [
+            'id', 'no_laporan', 'judul', 'lokasi',
+            'tanggal_kejadian', 'status', 'anonimitas',
+            'pelapor_info', 'nama_lengkap', 'akun_terverifikasi',
+            'tanggal_laporan', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'no_laporan', 'tanggal_laporan', 'updated_at'
+        ]
+
+    def get_pelapor_info(self, obj):
+        if obj.anonimitas:
+            kelas = obj.pelapor.kelas or '-'
+            return {
+                'nama_lengkap': f'Anonim dari Kelas {kelas}',
+                'kelas': kelas,
+                'role': obj.pelapor.role
+            }
+        return {
+            'id': str(obj.pelapor.id),
+            'username': obj.pelapor.username,
+            'nama_lengkap': obj.pelapor.nama_lengkap,
+            'role': obj.pelapor.role
+        }
+
+    def get_nama_lengkap(self, obj):
+        if obj.anonimitas:
+            kelas = obj.pelapor.kelas or '-'
+            return f'Anonim dari Kelas {kelas}'
+        return obj.pelapor.nama_lengkap if obj.pelapor else None
+
+    def get_akun_terverifikasi(self, obj):
+        if obj.anonimitas or not obj.pelapor:
+            return None
+        return obj.pelapor.is_verified
+
+
 class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
     foto_bukti = serializers.ListField(
         child=serializers.ImageField(),

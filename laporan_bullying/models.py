@@ -33,15 +33,15 @@ class LaporanBullying(models.Model):
 
     # Id untuk identifier dan nomor laporan sebagai kode unik
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    no_laporan = models.CharField(max_length=20, unique=True, editable=False)
+    no_laporan = models.CharField(max_length=20, unique=True, editable=False, db_index=True)
 
     # Komponen laporan
-    judul = models.CharField(max_length=255)
+    judul = models.CharField(max_length=255, db_index=True)
     deskripsi = models.TextField()
-    lokasi = models.CharField(max_length=255)
-    tanggal_kejadian = models.DateField()
-    jenis_bullying = models.CharField(max_length=20, choices=JENIS_BULLYING_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu')
+    lokasi = models.CharField(max_length=255, db_index=True)
+    tanggal_kejadian = models.DateField(db_index=True)
+    jenis_bullying = models.CharField(max_length=20, choices=JENIS_BULLYING_CHOICES, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)
 
     pelapor = models.ForeignKey(

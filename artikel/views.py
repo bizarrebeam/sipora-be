@@ -22,12 +22,7 @@ class ArtikelKelolaView(APIView):
         """
         Return a list of all articles (draft and published) for admin management.
         """
-        artikel_list = Artikel.objects.all().order_by('-created_at')
-        if not artikel_list.exists():
-            return Response({
-                "message": "Daftar artikel masih kosong",
-                "data": []
-            }, status=status.HTTP_200_OK)
+        artikel_list = Artikel.objects.all().prefetch_related('foto_artikel').order_by('-created_at')
         serializer = ArtikelSerializer(artikel_list, many=True, context={'request': request})
         return Response({
             "message": "Berhasil mengambil daftar artikel",
@@ -54,12 +49,7 @@ class ArtikelListCreateView(APIView):
         """
         Return a list of published articles for public view.
         """
-        artikel_list = Artikel.objects.filter(status='published').order_by('-created_at')
-        if not artikel_list.exists():
-            return Response({
-                "message": "Belum ada artikel yang dipublikasikan",
-                "data": []
-            }, status=status.HTTP_200_OK)
+        artikel_list = Artikel.objects.filter(status='published').prefetch_related('foto_artikel').order_by('-created_at')
         serializer = ArtikelSerializer(artikel_list, many=True, context={'request': request})
         return Response({
             "message": "Berhasil mengambil daftar artikel",
