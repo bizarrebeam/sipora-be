@@ -147,24 +147,16 @@ class LoginSerializer(serializers.Serializer):
         identifier = data.get('identifier')
         password = data.get('password')
 
+        # Single DB lookup instead of lookup + authenticate (which does another lookup)
+        user = None
         if identifier.isdigit() and len(identifier) == 4:
-            try:
-                user_obj = Pengguna.objects.get(nis=identifier)
-                username = user_obj.username
-            except Pengguna.DoesNotExist:
-                username = identifier
+            user = Pengguna.objects.filter(nis=identifier).first()
         elif identifier.isdigit() and len(identifier) == 16:
-            try:
-                user_obj = Pengguna.objects.get(nuptk=identifier)
-                username = user_obj.username
-            except Pengguna.DoesNotExist:
-                username = identifier
+            user = Pengguna.objects.filter(nuptk=identifier).first()
         else:
-            username = identifier
+            user = Pengguna.objects.filter(username=identifier).first()
 
-        user = authenticate(username=username, password=password)
-
-        if user and user.is_active:
+        if user and user.is_active and user.check_password(password):
             refresh = RefreshToken.for_user(user)
             return {
                 'refresh': str(refresh),
@@ -206,6 +198,16 @@ class PenggunaSerializer(serializers.ModelSerializer):
 
     def get_semester(self, obj):
         return self._semester_cache
+
+
+class PenggunaListSerializer(serializers.ModelSerializer):
+    """Lean serializer for admin list view — no computed fields."""
+    class Meta:
+        model = Pengguna
+        fields = (
+            'id', 'username', 'nis', 'nuptk', 'nama_lengkap',
+            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined'
+        )
 
 
 # ─── Edit Profile ──────────────────────────────────────────────────────────────
