@@ -9,7 +9,7 @@ MAX_FILES = 5
 MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 MAX_TOTAL_SIZE_BYTES = MAX_FILES * MAX_FILE_SIZE_BYTES
 MIN_REPORT_DATE = _date(2000, 1, 1)
-FORBIDDEN_SPECIAL_CHARS_REGEX = re.compile(r'[@!~`#$%^&*+_\-]')
+FORBIDDEN_SPECIAL_CHARS_REGEX = re.compile(r'[@!~`#$%^*+]')
 
 
 def normalize_text(value):
@@ -106,6 +106,7 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
     nama_lengkap = serializers.SerializerMethodField()
     foto_pendukung = serializers.SerializerMethodField()
     riwayat_status = RiwayatStatusSerializer(many=True, read_only=True)
+    akun_terverifikasi = serializers.SerializerMethodField()
 
     class Meta:
         model = LaporanKerusakan
@@ -113,7 +114,8 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
             'id', 'no_laporan', 'judul', 'deskripsi', 'lokasi',
             'tanggal_kejadian', 'status', 'catatan_admin',
             'anonimitas', 'pelapor_info', 'pengirim_username', 'nama_lengkap',
-            'tanggal_laporan', 'updated_at', 'foto_bukti', 'foto_pendukung'
+            'akun_terverifikasi', 'tanggal_laporan', 'updated_at', 'foto_bukti',
+            'foto_pendukung', 'riwayat_status'
         ]
         read_only_fields = [
             'id', 'no_laporan', 'tanggal_laporan', 'updated_at'
@@ -138,6 +140,11 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
         if obj.anonimitas:
             return None
         return obj.pelapor.username if obj.pelapor else None
+
+    def get_akun_terverifikasi(self, obj):
+        if obj.anonimitas or not obj.pelapor:
+            return None
+        return obj.pelapor.is_verified
     
     def get_nama_lengkap(self, obj):
         if obj.anonimitas:

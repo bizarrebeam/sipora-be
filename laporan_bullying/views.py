@@ -5,6 +5,7 @@ from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer, RiwayatStatusBullyingSerializer
+from django.db.models import Q
 
 # Fungsi untuk membuat laporan bullying
 class BuatLaporanBullyingView(APIView):
@@ -48,6 +49,26 @@ class BuatLaporanBullyingView(APIView):
                 diubah_oleh=request.user,
                 catatan="Laporan dibuat"
             )
+
+            # Log activity
+            ip = request.META.get('REMOTE_ADDR')
+            if laporan.anonimitas:
+                kelas = request.user.kelas or '-'
+                catat_log(
+                    None,
+                    'BUAT_LAPORAN',
+                    f"Anonim dari Kelas {kelas} membuat laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
+            else:
+                catat_log(
+                    request.user,
+                    'BUAT_LAPORAN',
+                    f"Membuat laporan bullying: {laporan.no_laporan}",
+                    'laporan_bullying',
+                    ip
+                )
 
             return Response({
                 "message": "Laporan berhasil dibuat",
@@ -178,7 +199,6 @@ class ListLaporanBullyingView(APIView):
         # Filter berdasarkan pencarian
         search_query = request.query_params.get('search')
         if search_query:
-            from django.db.models import Q
             laporan = laporan.filter(
                 Q(judul__icontains=search_query) |
                 Q(lokasi__icontains=search_query) |
@@ -188,7 +208,7 @@ class ListLaporanBullyingView(APIView):
         # Filter berdasarkan tanggal kejadian
         date_filter = request.query_params.get('date')
         if date_filter:
-            laporan = laporan.filter(tanggal_kejadian__date=date_filter)
+            laporan = laporan.filter(tanggal_kejadian=date_filter)
 
         # Sort berdasarkan keterbaharuan
         sort_order = request.query_params.get('sort')

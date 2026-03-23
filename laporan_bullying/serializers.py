@@ -40,6 +40,11 @@ class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
 
     def get_user(self, obj):
         if obj.diubah_oleh:
+            if obj.laporan.anonimitas and obj.diubah_oleh == obj.laporan.pelapor:
+                return {
+                    'id': obj.diubah_oleh.id,
+                    'nama': 'Pengguna Anonim'
+                }
             return {
                 'id': obj.diubah_oleh.id,
                 'nama': getattr(obj.diubah_oleh, 'nama_lengkap', 'Admin')
@@ -50,6 +55,7 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = LaporanBullying
         fields = [
+            'id',
             'judul',
             'deskripsi',
             'lokasi',
@@ -57,6 +63,7 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
             'jenis_bullying',
             'anonimitas'
         ]
+        read_only_fields = ['id']
 
     def validate_judul(self, value):
         value = sanitize_text(value)
@@ -74,6 +81,9 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
 
         if not value:
             raise serializers.ValidationError("Deskripsi wajib diisi")
+            
+        if len(value) < 50:
+            raise serializers.ValidationError("Deskripsi wajib diisi minimal 50 karakter")
 
         return value
 
@@ -92,7 +102,7 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
 
 class LaporanBullyingListSerializer(serializers.ModelSerializer):
     nama_pengirim = serializers.SerializerMethodField()
-    akun_terverifikasi = serializers.SerializerMethodField()
+    akun_terverifikasi = serializers.BooleanField(source='pelapor.is_verified', read_only=True)
     kelas = serializers.SerializerMethodField()
 
     class Meta:
@@ -113,16 +123,14 @@ class LaporanBullyingListSerializer(serializers.ModelSerializer):
     def get_nama_pengirim(self, obj):
         return obj.get_nama_pelapor()
 
-    def get_akun_terverifikasi(self, obj):
-        return getattr(obj.pelapor, 'is_verified', False)
-
     def get_kelas(self, obj):
         return getattr(obj.pelapor, 'kelas', None)
 
 class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
+    pelapor = serializers.IntegerField(source='pelapor.id', read_only=True)
     foto_bukti = FotoBuktiBullyingSerializer(many=True, read_only=True)
     nama_pengirim = serializers.SerializerMethodField()
-    akun_terverifikasi = serializers.SerializerMethodField()
+    akun_terverifikasi = serializers.BooleanField(source='pelapor.is_verified', read_only=True)
     kelas = serializers.SerializerMethodField()
     riwayat_status = RiwayatStatusBullyingSerializer(many=True, read_only=True)
 
@@ -130,6 +138,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
         model = LaporanBullying
         fields = [
             'id',
+            'pelapor',
             'no_laporan',
             'nama_pengirim',
             'kelas',
@@ -153,9 +162,6 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
         if obj.anonimitas:
             return "Dirahasiakan"
         return getattr(obj.pelapor, 'kelas', None)
-
-    def get_akun_terverifikasi(self, obj):
-        return getattr(obj.pelapor, 'is_verified', False)
 
 class CancelLaporanSerializer(serializers.Serializer):
     alasan_pembatalan = serializers.CharField()

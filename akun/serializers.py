@@ -7,6 +7,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
+import threading
 import re
 
 
@@ -129,23 +130,19 @@ class LoginSerializer(serializers.Serializer):
         identifier = data.get('identifier')
         password = data.get('password')
 
-        # Auto-detect identifier type
         if identifier.isdigit() and len(identifier) == 4:
-            # NIS (siswa)
             try:
                 user_obj = Pengguna.objects.get(nis=identifier)
                 username = user_obj.username
             except Pengguna.DoesNotExist:
                 username = identifier
         elif identifier.isdigit() and len(identifier) == 16:
-            # NUPTK (guru / guru_bk)
             try:
                 user_obj = Pengguna.objects.get(nuptk=identifier)
                 username = user_obj.username
             except Pengguna.DoesNotExist:
                 username = identifier
         else:
-            # Username (kemahasiswaan, or other)
             username = identifier
 
         user = authenticate(username=username, password=password)
@@ -235,7 +232,6 @@ class UbahPasswordSerializer(serializers.Serializer):
 # ─── Forgot Password ──────────────────────────────────────────────────────────
 
 def mask_email(email):
-    """Mask email for privacy: a****[REDACTED EMAIL]"""
     if not email:
         return ''
     local, domain = email.split('@')
@@ -265,22 +261,32 @@ class ForgotPasswordSerializer(serializers.Serializer):
         user = self.user
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+        
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        reset_link = f"{frontend_url}/reset-password/{uid}/{token}"
 
-        send_mail(
-            subject='[SIPORA] Reset Password Akunmu',
-            message=(
-                f'Halo {user.nama_lengkap},\n\n'
-                f'Kamu meminta reset password untuk akun SIPORA-mu.\n'
-                f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
-                f'{reset_link}\n\n'
-                f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
-                f'Salam,\nTim SIPORA SMP Desa Putera'
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        def send_email_thread():
+            try:
+                send_mail(
+                    subject='[SIPORA] Reset Password Akunmu',
+                    message=(
+                        f'Halo {user.nama_lengkap},\n\n'
+                        f'Kamu meminta reset password untuk akun SIPORA-mu.\n'
+                        f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
+                        f'{reset_link}\n\n'
+                        f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
+                        f'Salam,\nTim SIPORA SMP Desa Putera'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                import traceback
+                print(f"SMTP Background Task Error: {str(e)}")
+                traceback.print_exc()
+
+        threading.Thread(target=send_email_thread).start()
 
         return mask_email(user.email)
 
