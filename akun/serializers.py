@@ -60,7 +60,7 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pengguna
-        fields = ('nuptk', 'nama_lengkap', 'mata_pelajaran', 'password')
+        fields = ('nuptk', 'email', 'nama_lengkap', 'mata_pelajaran', 'password')
 
     def validate_nuptk(self, value):
         if not value.isdigit() or len(value) != 16:
@@ -68,6 +68,13 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         if Pengguna.objects.filter(nuptk=value).exists():
             raise serializers.ValidationError("NUPTK sudah terdaftar.")
         return value
+
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email wajib diisi.")
+        if Pengguna.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email sudah terdaftar.")
+        return value.strip().lower()
 
     def validate_mata_pelajaran(self, value):
         if not value or not value.strip():
@@ -78,6 +85,7 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         return Pengguna.objects.create_user(
             username=validated_data['nuptk'],
             nuptk=validated_data['nuptk'],
+            email=validated_data['email'],
             nama_lengkap=validated_data['nama_lengkap'],
             mata_pelajaran=validated_data['mata_pelajaran'],
             password=validated_data['password'],
@@ -93,10 +101,11 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pengguna
-        fields = ('username', 'nuptk', 'nama_lengkap', 'password')
+        fields = ('username', 'nuptk', 'email', 'nama_lengkap', 'password')
         extra_kwargs = {
             'username': {'required': True},
-            'nuptk': {'required': False, 'allow_null': True, 'allow_blank': True}
+            'nuptk': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'email': {'required': True}
         }
 
     def validate_nuptk(self, value):
@@ -108,10 +117,18 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("NUPTK sudah terdaftar.")
         return value
 
+    def validate_email(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email wajib diisi.")
+        if Pengguna.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email sudah terdaftar.")
+        return value.strip().lower()
+
     def create(self, validated_data):
         return Pengguna.objects.create_user(
             username=validated_data['username'],
             nuptk=validated_data.get('nuptk'),
+            email=validated_data['email'],
             nama_lengkap=validated_data['nama_lengkap'],
             mata_pelajaran='Bimbingan Konseling',
             password=validated_data['password'],
@@ -130,24 +147,16 @@ class LoginSerializer(serializers.Serializer):
         identifier = data.get('identifier')
         password = data.get('password')
 
+        # Single DB lookup instead of lookup + authenticate (which does another lookup)
+        user = None
         if identifier.isdigit() and len(identifier) == 4:
-            try:
-                user_obj = Pengguna.objects.get(nis=identifier)
-                username = user_obj.username
-            except Pengguna.DoesNotExist:
-                username = identifier
+            user = Pengguna.objects.filter(nis=identifier).first()
         elif identifier.isdigit() and len(identifier) == 16:
-            try:
-                user_obj = Pengguna.objects.get(nuptk=identifier)
-                username = user_obj.username
-            except Pengguna.DoesNotExist:
-                username = identifier
+            user = Pengguna.objects.filter(nuptk=identifier).first()
         else:
-            username = identifier
+            user = Pengguna.objects.filter(username=identifier).first()
 
-        user = authenticate(username=username, password=password)
-
-        if user and user.is_active:
+        if user and user.is_active and user.check_password(password):
             refresh = RefreshToken.for_user(user)
             return {
                 'refresh': str(refresh),
@@ -170,6 +179,12 @@ class PenggunaSerializer(serializers.ModelSerializer):
     tahun_ajaran = serializers.SerializerMethodField()
     semester = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Cache at serializer instance level (same for all objects)
+        self._tahun_ajaran_cache = get_tahun_ajaran()
+        self._semester_cache = get_semester()
+
     class Meta:
         model = Pengguna
         fields = (
@@ -179,10 +194,20 @@ class PenggunaSerializer(serializers.ModelSerializer):
         )
 
     def get_tahun_ajaran(self, obj):
-        return get_tahun_ajaran()
+        return self._tahun_ajaran_cache
 
     def get_semester(self, obj):
-        return get_semester()
+        return self._semester_cache
+
+
+class PenggunaListSerializer(serializers.ModelSerializer):
+    """Lean serializer for admin list view — no computed fields."""
+    class Meta:
+        model = Pengguna
+        fields = (
+            'id', 'username', 'nis', 'nuptk', 'nama_lengkap',
+            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined'
+        )
 
 
 # ─── Edit Profile ──────────────────────────────────────────────────────────────

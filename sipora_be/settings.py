@@ -84,6 +84,7 @@ if PRODUCTION:
             'OPTIONS': {
                 'sslmode': 'require',
             },
+            'CONN_MAX_AGE': 600,
         }
     }
 else:

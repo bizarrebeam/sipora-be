@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
+from django.db import IntegrityError
 from django.db.models import Q
 from django.conf import settings
 
@@ -12,6 +13,7 @@ from .serializers import (
     AdminBuatGuruBKSerializer,
     LoginSerializer,
     PenggunaSerializer,
+    PenggunaListSerializer,
     EditProfilSerializer,
     UbahPasswordSerializer,
     ForgotPasswordSerializer,
@@ -283,7 +285,18 @@ class AdminBuatAkunView(APIView):
             return Response({"detail": "role_type harus 'guru' atau 'guru_bk'."}, status=400)
 
         if serializer.is_valid():
-            user = serializer.save()
+            try:
+                user = serializer.save()
+            except IntegrityError as e:
+                error_msg = str(e).lower()
+                if 'email' in error_msg:
+                    return Response({"email": ["Email sudah terdaftar."]}, status=400)
+                if 'username' in error_msg:
+                    return Response({"username": ["Username sudah terdaftar."]}, status=400)
+                if 'nuptk' in error_msg:
+                    return Response({"nuptk": ["NUPTK sudah terdaftar."]}, status=400)
+                return Response({"detail": "Gagal membuat akun karena konflik data di database."}, status=400)
+
             catat_log(
                 user=request.user,
                 aksi='BUAT_AKUN',
@@ -302,8 +315,13 @@ class AdminDaftarAkunView(APIView):
     @role_required('kemahasiswaan', 'guru_bk')
     def get(self, request):
         search = request.query_params.get('search', '').strip()
+        role = request.query_params.get('role', '').strip()
+        is_verified = request.query_params.get('is_verified', '').strip()
 
-        base_qs = Pengguna.objects.all()
+        base_qs = Pengguna.objects.only(
+            'id', 'nama_lengkap', 'nis', 'nuptk', 'username', 'role', 'kelas', 
+            'mata_pelajaran', 'is_verified', 'date_joined'
+        ).all()
         if search:
             base_qs = base_qs.filter(
                 Q(nama_lengkap__icontains=search) |
@@ -312,36 +330,40 @@ class AdminDaftarAkunView(APIView):
                 Q(username__icontains=search)
             )
 
-        siswa_qs = base_qs.filter(role='siswa').order_by('nama_lengkap')
+        # Apply role filter
+        if role:
+            base_qs = base_qs.filter(role=role)
         
-        # Jika guru_bk, hanya kembalikan daftar siswa
+        # Apply is_verified filter
+        if is_verified:
+            # handle 'true'/'false' strings
+            base_qs = base_qs.filter(is_verified=(is_verified.lower() == 'true'))
+
+        # Apply date_joined filter (YYYY-MM-DD)
+        date_joined = request.query_params.get('date_joined', '').strip()
+        if date_joined:
+            from django.utils.dateparse import parse_date
+            parsed = parse_date(date_joined)
+            if parsed:
+                base_qs = base_qs.filter(date_joined__date=parsed)
+
+        # If guru_bk, can only see students
         if request.user.role == 'guru_bk':
-            return Response({
-                "siswa": {
-                    "total": siswa_qs.count(),
-                    "data": PenggunaSerializer(siswa_qs, many=True).data,
-                },
-                "guru": { "total": 0, "data": [] },
-                "guru_bk": { "total": 0, "data": [] },
-            })
+            base_qs = base_qs.filter(role='siswa')
 
-        guru_qs = base_qs.filter(role='guru').order_by('nama_lengkap')
-        guru_bk_qs = base_qs.filter(role='guru_bk').order_by('nama_lengkap')
+        # Sorting
+        ordering = request.query_params.get('ordering', '-date_joined')
+        base_qs = base_qs.order_by(ordering)
 
-        return Response({
-            "siswa": {
-                "total": siswa_qs.count(),
-                "data": PenggunaSerializer(siswa_qs, many=True).data,
-            },
-            "guru": {
-                "total": guru_qs.count(),
-                "data": PenggunaSerializer(guru_qs, many=True).data,
-            },
-            "guru_bk": {
-                "total": guru_bk_qs.count(),
-                "data": PenggunaSerializer(guru_bk_qs, many=True).data,
-            },
-        })
+        paginator = PageNumberPagination()
+        # Allow dynamic page size if present, but default to 10, max 100
+        page_size = int(request.query_params.get('page_size', 10))
+        page_size = min(page_size, 100)  # Limit max to 100 per page
+        paginator.page_size = page_size
+        
+        result_page = paginator.paginate_queryset(base_qs, request)
+        serializer = PenggunaListSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 # ─── Admin: Verify Student ────────────────────────────────────────────────────

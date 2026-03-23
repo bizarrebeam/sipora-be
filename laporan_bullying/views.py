@@ -191,12 +191,23 @@ class ListLaporanBullyingView(APIView):
         else:
             return Response({"error": "Forbidden"}, status=403)
 
+        # select_related to avoid N+1 on pelapor fields
+        laporan = laporan.select_related('pelapor')
+
+        # Only fetch fields needed for list serializer
+        laporan = laporan.only(
+            'id', 'no_laporan', 'judul', 'tanggal_kejadian', 'lokasi',
+            'status', 'tanggal_laporan', 'anonimitas',
+            'pelapor__id', 'pelapor__nama_lengkap', 'pelapor__kelas',
+            'pelapor__is_verified', 'pelapor__role'
+        )
+
         # Filter berdasarkan status
         status_filter = request.query_params.get('status')
         if status_filter and status_filter != 'semua':
             laporan = laporan.filter(status=status_filter)
 
-        # Filter berdasarkan pencarian
+        # Filter berdasarkan pencarian (indexed fields only, no deskripsi)
         search_query = request.query_params.get('search')
         if search_query:
             laporan = laporan.filter(
@@ -214,14 +225,29 @@ class ListLaporanBullyingView(APIView):
         sort_order = request.query_params.get('sort')
         if sort_order == 'asc':
             laporan = laporan.order_by('tanggal_laporan')
-        elif sort_order == 'desc':
+        else:
             laporan = laporan.order_by('-tanggal_laporan')
 
-        if not laporan.exists():
-            return Response({"message": "Belum ada laporan yang dikirimkan."}, status=200)
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
+        try:
+            page = max(1, int(page))
+            page_size = min(max(1, int(page_size)), 100)
+        except (ValueError, TypeError):
+            page = 1
+            page_size = 10
 
-        serializer = LaporanBullyingListSerializer(laporan, many=True)
-        return Response(serializer.data)
+        total = laporan.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_data = laporan[start:end]
+
+        serializer = LaporanBullyingListSerializer(page_data, many=True)
+        return Response({
+            "count": total,
+            "results": serializer.data
+        })
 
 # Fungsi untuk melihat detail laporan bullying
 class DetailLaporanBullyingView(APIView):

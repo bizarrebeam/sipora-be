@@ -26,10 +26,8 @@ urlpatterns = [
     path('api/artikel/', include('artikel.urls')),
 ]
 
-# Only enable Django Admin in development
 if settings.DEBUG:
     urlpatterns.insert(0, path('admin/', admin.site.urls))
 
-# Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
