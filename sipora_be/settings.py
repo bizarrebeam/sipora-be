@@ -4,7 +4,9 @@ from dotenv import load_dotenv
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
+# Only load .env if it exists and we're not in production/Railway
+if not os.getenv('RAILWAY_STATIC_URL'):
+    load_dotenv(os.path.join(BASE_DIR, '.env'), override=False)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
@@ -121,7 +123,23 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Konfigurasi CORS & CSRF 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://sipora-fe.vercel.app')
+FRONTEND_ORIGIN = FRONTEND_URL.rstrip('/')
+
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_ORIGIN,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://sipora-fe.vercel.app",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    FRONTEND_ORIGIN,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://sipora-fe.vercel.app",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -157,8 +175,10 @@ SIMPLE_JWT = {
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{EMAIL_HOST_USER}>')
@@ -166,8 +186,20 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{
 if EMAIL_USE_CONSOLE_BACKEND:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Frontend URL for password reset links
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-
 # Password reset token expiry (1 hour)
 PASSWORD_RESET_TIMEOUT = 3600
+
+# ─── Railway/Docker IPv4 Fix ──────────────────────────────────────────────────
+if PRODUCTION:
+    import socket
+    import smtplib
+    
+    # Backup original
+    orig_getaddrinfo = socket.getaddrinfo
+
+    def forced_ipv4_getaddrinfo(*args, **kwargs):
+        if len(args) > 0 and 'googlemail' in str(args[0]) or 'gmail' in str(args[0]):
+            return orig_getaddrinfo(args[0], args[1], socket.AF_INET, socket.SOCK_STREAM)
+        return orig_getaddrinfo(*args, **kwargs)
+
+    socket.getaddrinfo = forced_ipv4_getaddrinfo
