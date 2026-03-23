@@ -26,11 +26,11 @@ class Aspirasi(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    no_laporan = models.CharField(max_length=20, unique=True, editable=False)
-    judul = models.CharField(max_length=255)
-    kategori = models.CharField(max_length=32, choices=KATEGORI_CHOICES)
+    no_laporan = models.CharField(max_length=20, unique=True, editable=False, db_index=True)
+    judul = models.CharField(max_length=255, db_index=True)
+    kategori = models.CharField(max_length=32, choices=KATEGORI_CHOICES, db_index=True)
     deskripsi = models.TextField()
-    status_ditandai = models.CharField(max_length=20, choices=DITANDAI_CHOICES, default='tidak_ditandai')
+    status_ditandai = models.CharField(max_length=20, choices=DITANDAI_CHOICES, default='tidak_ditandai', db_index=True)
     pelapor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

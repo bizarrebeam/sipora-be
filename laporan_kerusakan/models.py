@@ -22,12 +22,12 @@ class LaporanKerusakan(models.Model):
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    no_laporan = models.CharField(max_length=20, unique=True, editable=False)
-    judul = models.CharField(max_length=255)
+    no_laporan = models.CharField(max_length=20, unique=True, editable=False, db_index=True)
+    judul = models.CharField(max_length=255, db_index=True)
     deskripsi = models.TextField()
-    lokasi = models.CharField(max_length=255)
-    tanggal_kejadian = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu')
+    lokasi = models.CharField(max_length=255, db_index=True)
+    tanggal_kejadian = models.DateField(db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)    
     pelapor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -9,6 +9,7 @@ from django.utils.dateparse import parse_date
 from .models import LaporanKerusakan, RiwayatStatusLaporan
 from .serializers import (
     LaporanKerusakanSerializer,
+    LaporanKerusakanListSerializer,
     CreateLaporanKerusakanSerializer,
     EditLaporanKerusakanSerializer,
     CancelLaporanKerusakanSerializer
@@ -108,6 +109,17 @@ class LaporanKerusakanListView(APIView):
         else:
             laporan_list = LaporanKerusakan.objects.filter(pelapor=user)
         
+        # select_related to avoid N+1 on pelapor fields
+        laporan_list = laporan_list.select_related('pelapor')
+
+        # Only fetch fields needed for list view
+        laporan_list = laporan_list.only(
+            'id', 'no_laporan', 'judul', 'lokasi', 'tanggal_kejadian',
+            'status', 'anonimitas', 'tanggal_laporan', 'updated_at',
+            'pelapor__id', 'pelapor__username', 'pelapor__nama_lengkap',
+            'pelapor__kelas', 'pelapor__role', 'pelapor__is_verified'
+        )
+
         status_filter = request.query_params.get('status')
         if status_filter and status_filter != 'semua':
             laporan_list = laporan_list.filter(status=status_filter)
@@ -117,8 +129,7 @@ class LaporanKerusakanListView(APIView):
             laporan_list = laporan_list.filter(
                 models.Q(no_laporan__icontains=search) |
                 models.Q(judul__icontains=search) |
-                models.Q(lokasi__icontains=search) |
-                models.Q(deskripsi__icontains=search)
+                models.Q(lokasi__icontains=search)
             )
 
         date_filter = request.query_params.get('date')
@@ -168,9 +179,24 @@ class LaporanKerusakanListView(APIView):
             laporan_list = laporan_list.order_by('tanggal_laporan')
         else:
             laporan_list = laporan_list.order_by('-tanggal_laporan')
+
+        # Pagination
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        try:
+            page = max(1, int(page))
+            page_size = min(max(1, int(page_size)), 100)
+        except (ValueError, TypeError):
+            page = 1
+            page_size = 20
+
+        total = laporan_list.count()
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_data = laporan_list[start_idx:end_idx]
         
-        serializer = LaporanKerusakanSerializer(
-            laporan_list, 
+        serializer = LaporanKerusakanListSerializer(
+            page_data, 
             many=True,
             context={'request': request}
         )
@@ -180,7 +206,7 @@ class LaporanKerusakanListView(APIView):
                 'status': 'success',
                 'message': 'Berhasil mengambil data laporan',
                 'data': {
-                    'total': laporan_list.count(),
+                    'total': total,
                     'laporan': serializer.data,
                     'access_denied': False,
                     'access_message': None
