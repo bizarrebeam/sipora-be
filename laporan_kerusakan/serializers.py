@@ -99,7 +99,37 @@ class RiwayatStatusSerializer(serializers.ModelSerializer):
         return 'Sistem'
 
 
-class LaporanKerusakanSerializer(serializers.ModelSerializer):
+class PelaporInfoMixin:
+    """Mixin for pelapor info related methods shared between serializers"""
+    def get_pelapor_info(self, obj):
+        if obj.anonimitas:
+            kelas = obj.pelapor.kelas or '-'
+            return {
+                'nama_lengkap': f'Anonim dari Kelas {kelas}',
+                'kelas': kelas,
+                'role': obj.pelapor.role
+            }
+        return {
+            'id': str(obj.pelapor.id),
+            'username': obj.pelapor.username,
+            'nama_lengkap': obj.pelapor.nama_lengkap,
+            'kelas': obj.pelapor.kelas or '-',
+            'role': obj.pelapor.role
+        }
+
+    def get_nama_lengkap(self, obj):
+        if obj.anonimitas:
+            kelas = obj.pelapor.kelas or '-'
+            return f'Anonim dari Kelas {kelas}'
+        return obj.pelapor.nama_lengkap if obj.pelapor else None
+
+    def get_akun_terverifikasi(self, obj):
+        if obj.anonimitas or not obj.pelapor:
+            return None
+        return obj.pelapor.is_verified
+
+
+class LaporanKerusakanSerializer(PelaporInfoMixin, serializers.ModelSerializer):
     foto_bukti = FotoBuktiSerializer(many=True, read_only=True)
     pelapor_info = serializers.SerializerMethodField()
     pengirim_username = serializers.SerializerMethodField()
@@ -121,37 +151,10 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
             'id', 'no_laporan', 'tanggal_laporan', 'updated_at'
         ]
     
-    def get_pelapor_info(self, obj):
-        if obj.anonimitas:
-            kelas = obj.pelapor.kelas or '-'
-            return {
-                'nama_lengkap': f'Anonim dari Kelas {kelas}',
-                'kelas': kelas,
-                'role': obj.pelapor.role
-            }
-        return {
-            'id': str(obj.pelapor.id),
-            'username': obj.pelapor.username,
-            'nama_lengkap': obj.pelapor.nama_lengkap,
-            'kelas': obj.pelapor.kelas or '-',
-            'role': obj.pelapor.role
-        }
-    
     def get_pengirim_username(self, obj):
         if obj.anonimitas:
             return None
         return obj.pelapor.username if obj.pelapor else None
-
-    def get_akun_terverifikasi(self, obj):
-        if obj.anonimitas or not obj.pelapor:
-            return None
-        return obj.pelapor.is_verified
-    
-    def get_nama_lengkap(self, obj):
-        if obj.anonimitas:
-            kelas = obj.pelapor.kelas or '-'
-            return f'Anonim dari Kelas {kelas}'
-        return obj.pelapor.nama_lengkap if obj.pelapor else None
     
     def get_foto_pendukung(self, obj):
         request = self.context.get('request')
@@ -163,7 +166,7 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
         return foto_list if foto_list else None
 
 
-class LaporanKerusakanListSerializer(serializers.ModelSerializer):
+class LaporanKerusakanListSerializer(PelaporInfoMixin, serializers.ModelSerializer):
     """Lean serializer for list view - no foto_bukti, no riwayat_status to avoid N+1"""
     pelapor_info = serializers.SerializerMethodField()
     nama_lengkap = serializers.SerializerMethodField()
@@ -181,35 +184,9 @@ class LaporanKerusakanListSerializer(serializers.ModelSerializer):
             'id', 'no_laporan', 'tanggal_laporan', 'updated_at'
         ]
 
-    def get_pelapor_info(self, obj):
-        if obj.anonimitas:
-            kelas = obj.pelapor.kelas or '-'
-            return {
-                'nama_lengkap': f'Anonim dari Kelas {kelas}',
-                'kelas': kelas,
-                'role': obj.pelapor.role
-            }
-        return {
-            'id': str(obj.pelapor.id),
-            'username': obj.pelapor.username,
-            'nama_lengkap': obj.pelapor.nama_lengkap,
-            'kelas': obj.pelapor.kelas or '-',
-            'role': obj.pelapor.role
-        }
 
-    def get_nama_lengkap(self, obj):
-        if obj.anonimitas:
-            kelas = obj.pelapor.kelas or '-'
-            return f'Anonim dari Kelas {kelas}'
-        return obj.pelapor.nama_lengkap if obj.pelapor else None
-
-    def get_akun_terverifikasi(self, obj):
-        if obj.anonimitas or not obj.pelapor:
-            return None
-        return obj.pelapor.is_verified
-
-
-class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
+class BaseCreateEditLaporanKerusakanSerializer(serializers.ModelSerializer):
+    """Base class for create and edit to avoid duplication"""
     foto_bukti = serializers.ListField(
         child=serializers.ImageField(),
         write_only=True,
@@ -217,14 +194,14 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
         max_length=MAX_FILES
     )
     tanggal_kejadian = serializers.CharField()
-    
+
     class Meta:
         model = LaporanKerusakan
         fields = [
             'judul', 'deskripsi', 'lokasi', 'tanggal_kejadian',
             'anonimitas', 'foto_bukti'
         ]
-    
+
     def validate_foto_bukti(self, value):
         return validate_uploaded_files(value)
 
@@ -278,16 +255,18 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(errors)
 
         return attrs
-    
+
+
+class CreateLaporanKerusakanSerializer(BaseCreateEditLaporanKerusakanSerializer):
     def create(self, validated_data):
         foto_bukti_list = validated_data.pop('foto_bukti', [])
         pelapor = self.context['request'].user
-        
+
         laporan = LaporanKerusakan.objects.create(
             pelapor=pelapor,
             **validated_data
         )
-        
+
         for foto in foto_bukti_list:
             FotoBuktiPendukung.objects.create(
                 laporan=laporan,
@@ -304,76 +283,7 @@ class CreateLaporanKerusakanSerializer(serializers.ModelSerializer):
         return laporan
 
 
-class EditLaporanKerusakanSerializer(serializers.ModelSerializer):
-    foto_bukti = serializers.ListField(
-        child=serializers.ImageField(),
-        write_only=True,
-        required=False,
-        max_length=MAX_FILES
-    )
-    tanggal_kejadian = serializers.CharField()
-
-    class Meta:
-        model = LaporanKerusakan
-        fields = [
-            'judul', 'deskripsi', 'lokasi', 'tanggal_kejadian',
-            'anonimitas', 'foto_bukti'
-        ]
-
-    def validate_foto_bukti(self, value):
-        return validate_uploaded_files(value)
-
-    def validate(self, attrs):
-        errors = {}
-
-        judul_error = validate_text_field('Judul', attrs.get('judul'), min_length=5, max_length=120)
-        deskripsi_error = validate_text_field('Deskripsi', attrs.get('deskripsi'), min_length=20, max_length=2000)
-        lokasi_error = validate_text_field('Lokasi', attrs.get('lokasi'), min_length=3, max_length=255)
-
-        if judul_error:
-            errors['judul'] = judul_error
-        if deskripsi_error:
-            errors['deskripsi'] = deskripsi_error
-        if lokasi_error:
-            errors['lokasi'] = lokasi_error
-
-        t = attrs.get('tanggal_kejadian')
-        if not t:
-            errors['tanggal_kejadian'] = 'Tanggal wajib diisi'
-        else:
-            parsed = None
-            if isinstance(t, _date):
-                parsed = t
-            else:
-                for fmt in ('%d/%m/%Y', '%Y-%m-%d'):
-                    try:
-                        parsed = datetime.strptime(str(t), fmt).date()
-                        break
-                    except Exception:
-                        parsed = None
-
-            if not parsed:
-                errors['tanggal_kejadian'] = 'Format tanggal tidak valid'
-            else:
-                if parsed < MIN_REPORT_DATE:
-                    errors['tanggal_kejadian'] = 'Tanggal kejadian tidak valid'
-                elif parsed > datetime.now().date():
-                    errors['tanggal_kejadian'] = 'Tanggal kejadian tidak boleh lebih dari hari ini'
-                else:
-                    attrs['tanggal_kejadian'] = parsed
-
-        if 'judul' in attrs:
-            attrs['judul'] = normalize_text(attrs.get('judul'))
-        if 'deskripsi' in attrs:
-            attrs['deskripsi'] = normalize_text(attrs.get('deskripsi'))
-        if 'lokasi' in attrs:
-            attrs['lokasi'] = normalize_text(attrs.get('lokasi'))
-
-        if errors:
-            raise serializers.ValidationError(errors)
-
-        return attrs
-
+class EditLaporanKerusakanSerializer(BaseCreateEditLaporanKerusakanSerializer):
     def update(self, instance, validated_data):
         foto_bukti_list = validated_data.pop('foto_bukti', [])
 
