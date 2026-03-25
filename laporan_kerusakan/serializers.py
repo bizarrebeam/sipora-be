@@ -134,8 +134,7 @@ class LaporanKerusakanSerializer(serializers.ModelSerializer):
             'username': obj.pelapor.username,
             'nama_lengkap': obj.pelapor.nama_lengkap,
             'kelas': obj.pelapor.kelas or '-',
-            'role': obj.pelapor.role,
-            'akun_terverifikasi': obj.pelapor.is_verified if obj.pelapor else False
+            'role': obj.pelapor.role
         }
     
     def get_pengirim_username(self, obj):
@@ -195,8 +194,7 @@ class LaporanKerusakanListSerializer(serializers.ModelSerializer):
             'username': obj.pelapor.username,
             'nama_lengkap': obj.pelapor.nama_lengkap,
             'kelas': obj.pelapor.kelas or '-',
-            'role': obj.pelapor.role,
-            'akun_terverifikasi': obj.pelapor.is_verified if obj.pelapor else False
+            'role': obj.pelapor.role
         }
 
     def get_nama_lengkap(self, obj):
