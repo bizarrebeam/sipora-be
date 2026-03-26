@@ -1,3 +1,10 @@
+"""
+Models for the Account (Akun) Application.
+
+This module defines the custom user model and its managers used across the SIPORA platform,
+featuring role-based access control (RBAC), soft-delete capabilities, and verification tracking.
+"""
+
 import uuid
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
@@ -6,11 +13,19 @@ from django.utils import timezone
 from datetime import date
 
 class ActiveUserManager(UserManager):
+    """
+    Custom manager that filters out soft-deleted users.
+    Returns only currently active users by default.
+    """
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
 
 
 class Pengguna(AbstractUser):
+    """
+    Custom User model representing all authentication entities (Siswa, Kemahasiswaan, Guru, Guru BK) in the system.
+    Extends Django's AbstractUser to include domain-specific fields and soft-deletion metadata.
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ROLE_CHOICES = [
         ('kemahasiswaan', 'Kemahasiswaan'),
@@ -33,7 +48,7 @@ class Pengguna(AbstractUser):
     mata_pelajaran = models.CharField(max_length=255, null=True, blank=True)
     is_verified = models.BooleanField(default=False, db_index=True)
 
-    # WBS Soft Delete Logic for Acccount Deactivations
+    # Soft Delete Metadata
     is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(
@@ -48,13 +63,23 @@ class Pengguna(AbstractUser):
     all_objects = UserManager()
 
     def soft_delete(self, user=None):
-        self.is_active = False # Additional deactivation flag
+        """
+        Performs a logical deletion of the user account.
+        Deactivates the user and records the deletion timestamp and the executing administrator.
+        
+        Args:
+            user: The User instance performing the deletion.
+        """
+        self.is_active = False
         self.is_deleted = True
         self.deleted_at = timezone.now()
         self.deleted_by = user
         self.save()
 
     def delete(self, *args, **kwargs):
+        """
+        Overrides the default Django delete method to enforce soft-deletion instead of hard database removal.
+        """
         self.soft_delete()
 
     def __str__(self):
@@ -62,6 +87,13 @@ class Pengguna(AbstractUser):
 
 
 def get_tahun_ajaran():
+    """
+    Calculates the current academic year based on the current date.
+    The academic year begins in July.
+    
+    Returns:
+        str: Formatted academic year string (e.g., '2025/2026').
+    """
     today = date.today()
     if today.month >= 7:
         return f"{today.year}/{today.year + 1}"
@@ -69,5 +101,12 @@ def get_tahun_ajaran():
 
 
 def get_semester():
+    """
+    Determines the current academic semester based on the month.
+    Ganjil (Odd) runs from July to December. Genap (Even) runs from January to June.
+    
+    Returns:
+        str: 'Ganjil' or 'Genap'.
+    """
     today = date.today()
     return "Ganjil" if today.month >= 7 else "Genap"

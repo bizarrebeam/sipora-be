@@ -1,3 +1,10 @@
+"""
+URL Configuration for the Account (Akun) Application.
+
+This module maps account-related API endpoints to their respective views, handling 
+authentication, profile management, and role-based administration routes.
+"""
+
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
@@ -18,18 +25,25 @@ from .views import (
 )
 
 urlpatterns = [
-    path('seed/', SeedDatabaseView.as_view()),
-    path('register/', RegisterSiswaView.as_view()),
-    path('login/', LoginView.as_view()),
-    path('logout/', LogoutView.as_view()),
-    path('me/', ProfilView.as_view()),
-    path('me/edit/', EditProfilView.as_view()),
-    path('me/password/', UbahPasswordView.as_view()),
-    path('admin/buat/', AdminBuatAkunView.as_view()),
-    path('admin/daftar/', AdminDaftarAkunView.as_view()),
-    path('admin/verifikasi-siswa/<uuid:user_id>/', AdminVerifikasiSiswaView.as_view()),
-    path('admin/jumlah/', AdminJumlahAkunView.as_view()),
-    path('forgot-password/', ForgotPasswordView.as_view()),
-    path('reset-password/', ResetPasswordView.as_view()),
-    path('token/refresh/', CookieTokenRefreshView.as_view()),
+    # General Authentication & Base Endpoints
+    path('seed/', SeedDatabaseView.as_view(), name='database-seed'),
+    path('register/', RegisterSiswaView.as_view(), name='register-siswa'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    
+    # Profile Management
+    path('me/', ProfilView.as_view(), name='profil'),
+    path('me/edit/', EditProfilView.as_view(), name='profil-edit'),
+    path('me/password/', UbahPasswordView.as_view(), name='ubah-password'),
+    
+    # Role-Based Administrative Endpoints
+    path('admin/buat/', AdminBuatAkunView.as_view(), name='admin-buat-akun'),
+    path('admin/daftar/', AdminDaftarAkunView.as_view(), name='admin-daftar-akun'),
+    path('admin/verifikasi-siswa/<uuid:user_id>/', AdminVerifikasiSiswaView.as_view(), name='admin-verifikasi-siswa'),
+    path('admin/jumlah/', AdminJumlahAkunView.as_view(), name='admin-jumlah-akun'),
+    
+    # Password Reset Workflows
+    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
+    path('token/refresh/', CookieTokenRefreshView.as_view(), name='token-refresh'),
 ]

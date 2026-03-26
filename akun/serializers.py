@@ -1,3 +1,10 @@
+"""
+Serializers for the Account (Akun) Application.
+
+This module provides data validation, serialization, and deserialization for the 
+custom user model across various authentication and administrative workflows.
+"""
+
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Pengguna, get_tahun_ajaran, get_semester
@@ -11,9 +18,13 @@ import threading
 import re
 
 
-# ─── Public Registration (Siswa only) ─────────────────────────────────────────
+# ─── Public Registration ────────────────────────────────────────────────────────
 
 class RegisterSiswaSerializer(serializers.ModelSerializer):
+    """
+    Handles the public registration of Siswa (Student) accounts.
+    Validates NIS uniqueness, presence of required demographic fields, and password strength.
+    """
     password = serializers.CharField(
         write_only=True, min_length=8,
         error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
@@ -69,9 +80,13 @@ class RegisterSiswaSerializer(serializers.ModelSerializer):
         )
 
 
-# ─── Admin: Create Guru Account ───────────────────────────────────────────────
+# ─── Administrative Account Creation ────────────────────────────────────────────
 
 class AdminBuatGuruSerializer(serializers.ModelSerializer):
+    """
+    Serializer for administrators creating Teacher (Guru) accounts.
+    Validates NUPTK formatting, uniqueness, and assigns the 'guru' role explicitly.
+    """
     password = serializers.CharField(
         write_only=True, min_length=8,
         error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
@@ -123,9 +138,11 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         )
 
 
-# ─── Admin: Create Guru BK Account ────────────────────────────────────────────
-
 class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
+    """
+    Serializer for administrators creating Guidance Counselor (Guru BK) accounts.
+    Allows optional NUPTK and assigns the 'guru_bk' role explicitly.
+    """
     password = serializers.CharField(
         write_only=True, min_length=8,
         error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
@@ -184,9 +201,13 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
         )
 
 
-# ─── Login ─────────────────────────────────────────────────────────────────────
+# ─── Authentication Workflows ───────────────────────────────────────────────────
 
 class LoginSerializer(serializers.Serializer):
+    """
+    Handles user authentication. Accepts username, NIS, or NUPTK as an identifier.
+    Returns access and refresh JWT tokens alongside authenticated user metadata.
+    """
     identifier = serializers.CharField(
         error_messages={'blank': 'Identifier wajib diisi.', 'required': 'Identifier wajib diisi.'}
     )
@@ -202,7 +223,7 @@ class LoginSerializer(serializers.Serializer):
         if not identifier:
             raise serializers.ValidationError("Identifier wajib diisi.")
 
-        # Single DB lookup instead of lookup + authenticate (which does another lookup)
+        # Optimize lookup: resolve identity prior to authentication
         user = None
         if identifier.isdigit() and len(identifier) == 4:
             user = Pengguna.objects.filter(nis=identifier).first()
@@ -228,9 +249,13 @@ class LoginSerializer(serializers.Serializer):
         raise serializers.ValidationError("Kredensial tidak valid.")
 
 
-# ─── Profile ───────────────────────────────────────────────────────────────────
+# ─── Profile Management ─────────────────────────────────────────────────────────
 
 class PenggunaSerializer(serializers.ModelSerializer):
+    """
+    Comprehensive user serializer used for transmitting authorized profile details.
+    Includes dynamically computed academic year and semester fields.
+    """
     tahun_ajaran = serializers.SerializerMethodField()
     semester = serializers.SerializerMethodField()
 
@@ -265,9 +290,11 @@ class PenggunaListSerializer(serializers.ModelSerializer):
         )
 
 
-# ─── Edit Profile ──────────────────────────────────────────────────────────────
-
 class EditProfilSerializer(serializers.Serializer):
+    """
+    Validates profile update payloads based on the user's current role.
+    Siswa must provide 'kelas', while Guru must provide 'mata_pelajaran'.
+    """
     kelas = serializers.ChoiceField(
         choices=Pengguna.KELAS_CHOICES, required=False, allow_null=True
     )
@@ -290,9 +317,11 @@ class EditProfilSerializer(serializers.Serializer):
         return instance
 
 
-# ─── Change Password ──────────────────────────────────────────────────────────
-
 class UbahPasswordSerializer(serializers.Serializer):
+    """
+    Validates authenticated password change requests.
+    Enforces previous password verification and alphanumeric strength requirements.
+    """
     password_lama = serializers.CharField(
         write_only=True,
         error_messages={'blank': 'Password lama wajib diisi.', 'required': 'Password lama wajib diisi.'}
@@ -320,9 +349,13 @@ class UbahPasswordSerializer(serializers.Serializer):
         return user
 
 
-# ─── Forgot Password ──────────────────────────────────────────────────────────
+# ─── Password Recovery Workflows ────────────────────────────────────────────────
 
 def mask_email(email):
+    """
+    Constructs an obfuscated version of the user's email for privacy-safe UI display.
+    Example: j***n@example.com
+    """
     if not email:
         return ''
     local, domain = email.split('@')
@@ -334,6 +367,10 @@ def mask_email(email):
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
+    """
+    Validates NIS lookup during password recovery requests.
+    Triggers an asynchronous SMTP email dispatch containing a time-sensitive reset token.
+    """
     nis = serializers.CharField()
 
     def validate_nis(self, value):
@@ -383,6 +420,10 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 
 class ResetPasswordSerializer(serializers.Serializer):
+    """
+    Validates password reset token execution.
+    Consumes the UID and Token payloads sent via email to forcibly overwrite the forgotten password.
+    """
     uid = serializers.CharField()
     token = serializers.CharField()
     password = serializers.CharField(
