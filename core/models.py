@@ -1,10 +1,18 @@
+"""
+Abstract Base Models and Object Managers for the Core Application.
+
+This module defines ubiquitous architectural patterns, such as the Soft Delete
+mechanism, intended for inheritance by domain-specific models throughout the system.
+"""
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
 class ActiveManager(models.Manager):
     """
-    Manager to only return objects that have not been soft-deleted.
+    Custom QuerySet manager that exclusively retrieves active, non-soft-deleted entries.
+    Overrides the default query behavior to hide logically deleted records from the application layer.
     """
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
@@ -12,9 +20,9 @@ class ActiveManager(models.Manager):
 
 class SoftDeleteModel(models.Model):
     """
-    Abstract Base Class for implementing Soft Delete.
-    All models inheriting from this will not be hard-deleted from the database unless forced.
-    Instead, they are marked with is_deleted=True to preserve audit trails.
+    Abstract Base Model implementing the logical deletion pattern.
+    Entities inheriting this class will not be permanently purged from the physical database
+    upon invoking delete(). Instead, their state transitions to 'is_deleted=True' to maintain systemic audit trails.
     """
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -26,14 +34,19 @@ class SoftDeleteModel(models.Model):
         related_name='+'
     )
 
-    # Managers
+    # Base query manager restricted to active records.
     objects = ActiveManager()
+    
+    # Unrestricted query manager providing access to all records, including deleted ones.
     all_objects = models.Manager()
 
     class Meta:
         abstract = True
 
     def soft_delete(self, user=None):
+        """
+        Flags the model instance as deleted and records the timestamp and acting entity.
+        """
         self.is_deleted = True
         self.deleted_at = timezone.now()
         self.deleted_by = user
@@ -41,7 +54,6 @@ class SoftDeleteModel(models.Model):
 
     def delete(self, *args, **kwargs):
         """
-        Prevent hard deletion by overriding the default delete method.
-        Automatically converts to soft_delete.
+        Intercepts the standard physical deletion procedure and enforces a soft delete instead.
         """
         self.soft_delete()

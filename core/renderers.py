@@ -1,7 +1,15 @@
+"""
+Custom Response Renderers for the Django REST Framework.
+
+This module defines the global JSON serialization format, ensuring that all arbitrary API
+responses (both success and failure pathways) adhere to a strict structural contract.
+Additionally, it provides automated localization of default library error messages.
+"""
+
 from rest_framework.renderers import JSONRenderer
 import re
 
-# Map common DRF English default errors to Bahasa Indonesia
+# Maps default English DRF validation messages to localized Indonesian equivalents.
 _ERROR_TRANSLATIONS = {
     'This field may not be blank.': 'Kolom ini tidak boleh kosong.',
     'This field is required.': 'Kolom ini wajib diisi.',
@@ -23,11 +31,14 @@ _ERROR_TRANSLATIONS = {
     'No active account found with the given credentials': 'Kredensial tidak valid.',
 }
 
-# Regex for: "Ensure this field has at least X characters (it has Y)."
+# Regex pattern identifying DRF dynamic character length violation messages.
 _MIN_LENGTH_RE = re.compile(r'Ensure this (?:field|value) has at least (\d+) characters?')
 
 def _translate_message(msg):
-    """Translate a single error message from English DRF defaults to Indonesian."""
+    """
+    Translates a single error message string from standard Django REST Framework English into Indonesian.
+    Supports exact match translation and regex-based extraction for dynamic length messages.
+    """
     s = str(msg)
     if s in _ERROR_TRANSLATIONS:
         return _ERROR_TRANSLATIONS[s]
@@ -38,26 +49,31 @@ def _translate_message(msg):
 
 
 class CoreJSONRenderer(JSONRenderer):
+    """
+    Global JSON Renderer that enforces a uniform '{status, message, data}' schema payload
+    for all outgoing HTTP responses traversing the application.
+    """
     def render(self, data, accepted_media_type=None, renderer_context=None):
+        """
+        Intercepts the native rendering process, normalizes the structure, and translates
+        bubble-up exception details prior to stringification.
+        """
         if renderer_context is None:
             return super().render(data, accepted_media_type, renderer_context)
 
         response = renderer_context.get('response')
 
-        # Jika data sudah diformat standar (oleh exception handler), langsung render
+        # Extradite processing if data is already normalized by the core exception handler.
         if isinstance(data, dict) and 'status' in data and 'message' in data and 'data' in data:
-            # Still translate the message in case it's English
             data['message'] = _translate_message(data['message'])
             return super().render(data, accepted_media_type, renderer_context)
 
-        # Cek apakah response error (4xx / 5xx)
         is_error = response and response.status_code >= 400
 
         if is_error:
-            # Format error: ambil pesan dari field-level errors
+            # Flatten deeply nested field-level dictionary errors into a legible single string.
             error_message = "Terjadi kesalahan."
             if isinstance(data, dict):
-                # Flatten field errors menjadi pesan yang mudah dibaca
                 messages = []
                 for key, value in data.items():
                     if key == 'non_field_errors':
@@ -70,7 +86,8 @@ class CoreJSONRenderer(JSONRenderer):
                         for m in msgs:
                             messages.append(_translate_message(m))
                 if messages:
-                    error_message = messages[0]  # Tampilkan error pertama sebagai message utama
+                    # Select the chronologically first violation encountered
+                    error_message = messages[0]  
 
             formatted_response = {
                 "status": "error",
@@ -78,14 +95,14 @@ class CoreJSONRenderer(JSONRenderer):
                 "data": data if data else None
             }
         else:
-            # Standarisasi format untuk response sukses
+            # Enforce standardized schema for successful permutations
             formatted_response = {
                 "status": "success",
                 "message": "Permintaan berhasil diproses.",
                 "data": data
             }
 
-            # Ekstrak pesan kustom jika view mengirimkan key 'message'
+            # Promotes context-specific 'message' keys passed directly from APIViews.
             if isinstance(data, dict):
                 if "message" in data:
                     formatted_response["message"] = data.pop("message")
