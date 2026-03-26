@@ -1,3 +1,10 @@
+"""
+Custom Middleware Definitions for the Django Application.
+
+This module houses HTTP request/response pipeline interceptors utilized for
+monitoring, telemetry, and debugging.
+"""
+
 import time
 import logging
 
@@ -5,7 +12,10 @@ logger = logging.getLogger('django.request')
 
 
 class TimingMiddleware:
-    """Logs how long each request takes inside Django (excludes network)."""
+    """
+    Diagnostic middleware that logs the isolated server-side execution duration
+    of incoming HTTP requests (excluding network latency bottlenecks).
+    """
 
     def __init__(self, get_response):
         self.get_response = get_response

@@ -1,3 +1,10 @@
+"""
+API Views for Activity Logging.
+
+This module provides robust REST controllers equipped with advanced filtering,
+search, and pagination for querying the immutable systemic audit trails.
+"""
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import LogAktivitas
@@ -8,6 +15,11 @@ from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
 
 class DaftarLogView(APIView):
+    """
+    Provides administrative read access to the global `LogAktivitas` records.
+    Restricts access strictly to 'Kemahasiswaan' personnel. Supports dynamic slicing 
+    via pagination, timeline extraction, and multi-vector search.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('kemahasiswaan')
@@ -32,11 +44,9 @@ class DaftarLogView(APIView):
                 Q(pengguna__nuptk__icontains=search) |
                 Q(aksi__icontains=search) |
                 Q(modul__icontains=search)
-                # NOTE: deskripsi (TextField) intentionally excluded — full table scan
             )
 
         if tanggal:
-            # Assumes tanggal format is YYYY-MM-DD
             queryset = queryset.filter(waktu__date=tanggal)
 
         paginator = PageNumberPagination()
