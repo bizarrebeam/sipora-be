@@ -1,3 +1,10 @@
+"""
+Master URL Routing Configuration for the SIPORA Backend.
+
+Acts as the fundamental proxy mapping inbound HTTP patterns to their respective
+application-specific URL dispatchers. Includes an unprotected API health endpoint.
+"""
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -9,6 +16,9 @@ from rest_framework.response import Response
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def api_status(request):
+    """
+    Public diagnostic endpoint designed to report backend operational health and software version.
+    """
     return Response({
         'message': 'SIPORA Backend is running',
         'data': {
