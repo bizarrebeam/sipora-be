@@ -1,7 +1,22 @@
+"""
+Core Utility Functions for Activity Logging.
+
+This module exposes the primary, decoupled procedural functions for writing to the audit ledger
+without strictly requiring active HTTP request contexts.
+"""
+
 def catat_log(user, aksi, deskripsi, modul, ip_address=None):
     """
-    Globally reusable generic logging function for Whistleblower System Audit Trails.
-    This function should be called within views / services anytime a tracked model is created/modified.
+    Globally reusable generic logging procedure for the system audit trail.
+    This function should be executed synchronously across views and services whenever
+    a monitored entity is mutated.
+
+    Args:
+        user: The authenticated User model triggering the event, if applicable.
+        aksi (str): Short action classification (e.g., 'BUAT_AKUN', 'LOGIN').
+        deskripsi (str): Read-friendly summary of the mutation or event.
+        modul (str): The logical application domain.
+        ip_address (str): The requesting client's extracted IP, if trackable.
     """
     from .models import LogAktivitas
     
@@ -14,5 +29,5 @@ def catat_log(user, aksi, deskripsi, modul, ip_address=None):
             ip_address=ip_address
         )
     except Exception as e:
-        # Failsafe non-blocking execution in case log DB throws exception
+        # Prevents systemic failure if the logging persistence layer encounters an error
         print(f"Log Audit failed to save for {aksi}: {str(e)}")

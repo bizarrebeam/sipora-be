@@ -1,9 +1,25 @@
+"""
+Custom Authentication Mechanics for the Django REST Framework.
+
+This module extends the SimpleJWT authentication protocol to seamlessly support
+HTTP-Only Cookie-based token delivery, mitigating XSS vulnerability vectors.
+"""
+
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.conf import settings
 from rest_framework_simplejwt.exceptions import AuthenticationFailed, InvalidToken
 
 class CookieJWTAuthentication(JWTAuthentication):
+    """
+    Custom JWT Authentication backend that attempts to extract the access token
+    from HTTP-Only cookies if the standard Authorization header is absent.
+    """
     def authenticate(self, request):
+        """
+        Interrogates the incoming request for a valid JWT.
+        Prioritizes the Authorization header, falling back to the configured
+        authentication cookie.
+        """
         header = self.get_header(request)
 
         if header is not None:
