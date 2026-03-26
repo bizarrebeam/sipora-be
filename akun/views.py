@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.conf import settings
 
 from .serializers import (
@@ -396,3 +396,20 @@ class AdminVerifikasiSiswaView(APIView):
             "message": f"Akun siswa {siswa.nama_lengkap} berhasil diverifikasi.",
             "data": PenggunaSerializer(siswa).data,
         })
+
+
+# ─── Admin: Account Counts per Role ──────────────────────────────────────────
+
+class AdminJumlahAkunView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required('kemahasiswaan', 'guru_bk')
+    def get(self, request):
+        qs = Pengguna.objects.all()
+        # guru_bk can only see siswa counts
+        if request.user.role == 'guru_bk':
+            qs = qs.filter(role='siswa')
+
+        counts = qs.values('role').annotate(total=Count('id'))
+        result = {item['role']: item['total'] for item in counts}
+        return Response(result)
