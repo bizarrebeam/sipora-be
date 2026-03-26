@@ -14,8 +14,14 @@ import re
 # ─── Public Registration (Siswa only) ─────────────────────────────────────────
 
 class RegisterSiswaSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
-    konfirmasi_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(
+        write_only=True, min_length=8,
+        error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
+    )
+    konfirmasi_password = serializers.CharField(
+        write_only=True,
+        error_messages={'blank': 'Konfirmasi password wajib diisi.', 'required': 'Konfirmasi password wajib diisi.'}
+    )
 
     class Meta:
         model = Pengguna
@@ -28,12 +34,22 @@ class RegisterSiswaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("NIS sudah terdaftar.")
         return value
 
+    def validate_nama_lengkap(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Nama lengkap wajib diisi.")
+        return value.strip()
+
     def validate_email(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("Email wajib diisi.")
         if Pengguna.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email sudah terdaftar.")
         return value.strip().lower()
+
+    def validate_password(self, value):
+        if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("Password harus mengandung kombinasi huruf dan angka.")
+        return value
 
     def validate(self, data):
         if data['password'] != data['konfirmasi_password']:
@@ -56,7 +72,10 @@ class RegisterSiswaSerializer(serializers.ModelSerializer):
 # ─── Admin: Create Guru Account ───────────────────────────────────────────────
 
 class AdminBuatGuruSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
+    password = serializers.CharField(
+        write_only=True, min_length=8,
+        error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
+    )
 
     class Meta:
         model = Pengguna
@@ -69,6 +88,11 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("NUPTK sudah terdaftar.")
         return value
 
+    def validate_nama_lengkap(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Nama lengkap wajib diisi.")
+        return value.strip()
+
     def validate_email(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("Email wajib diisi.")
@@ -80,6 +104,11 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Mata pelajaran wajib diisi.")
         return value.strip()
+
+    def validate_password(self, value):
+        if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("Password harus mengandung kombinasi huruf dan angka.")
+        return value
 
     def create(self, validated_data):
         return Pengguna.objects.create_user(
@@ -97,16 +126,29 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
 # ─── Admin: Create Guru BK Account ────────────────────────────────────────────
 
 class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
+    password = serializers.CharField(
+        write_only=True, min_length=8,
+        error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
+    )
 
     class Meta:
         model = Pengguna
         fields = ('username', 'nuptk', 'email', 'nama_lengkap', 'password')
         extra_kwargs = {
-            'username': {'required': True},
+            'username': {'required': True, 'error_messages': {'blank': 'Username wajib diisi.', 'required': 'Username wajib diisi.'}},
             'nuptk': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'email': {'required': True}
+            'email': {'required': True, 'error_messages': {'blank': 'Email wajib diisi.', 'required': 'Email wajib diisi.'}}
         }
+
+    def validate_username(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Username wajib diisi.")
+        return value.strip()
+
+    def validate_nama_lengkap(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Nama lengkap wajib diisi.")
+        return value.strip()
 
     def validate_nuptk(self, value):
         if not value:
@@ -124,6 +166,11 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Email sudah terdaftar.")
         return value.strip().lower()
 
+    def validate_password(self, value):
+        if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("Password harus mengandung kombinasi huruf dan angka.")
+        return value
+
     def create(self, validated_data):
         return Pengguna.objects.create_user(
             username=validated_data['username'],
@@ -140,12 +187,20 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
 # ─── Login ─────────────────────────────────────────────────────────────────────
 
 class LoginSerializer(serializers.Serializer):
-    identifier = serializers.CharField()
-    password = serializers.CharField(write_only=True)
+    identifier = serializers.CharField(
+        error_messages={'blank': 'Identifier wajib diisi.', 'required': 'Identifier wajib diisi.'}
+    )
+    password = serializers.CharField(
+        write_only=True,
+        error_messages={'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
+    )
 
     def validate(self, data):
-        identifier = data.get('identifier')
+        identifier = data.get('identifier', '').strip()
         password = data.get('password')
+
+        if not identifier:
+            raise serializers.ValidationError("Identifier wajib diisi.")
 
         # Single DB lookup instead of lookup + authenticate (which does another lookup)
         user = None
@@ -238,13 +293,24 @@ class EditProfilSerializer(serializers.Serializer):
 # ─── Change Password ──────────────────────────────────────────────────────────
 
 class UbahPasswordSerializer(serializers.Serializer):
-    password_lama = serializers.CharField(write_only=True)
-    password_baru = serializers.CharField(write_only=True, min_length=6)
+    password_lama = serializers.CharField(
+        write_only=True,
+        error_messages={'blank': 'Password lama wajib diisi.', 'required': 'Password lama wajib diisi.'}
+    )
+    password_baru = serializers.CharField(
+        write_only=True, min_length=8,
+        error_messages={'min_length': 'Password baru harus minimal 8 karakter.', 'blank': 'Password baru wajib diisi.', 'required': 'Password baru wajib diisi.'}
+    )
 
     def validate_password_lama(self, value):
         user = self.context['request'].user
         if not user.check_password(value):
             raise serializers.ValidationError("Password lama yang dimasukkan salah.")
+        return value
+
+    def validate_password_baru(self, value):
+        if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("Password baru harus mengandung kombinasi huruf dan angka.")
         return value
 
     def save(self):
@@ -319,8 +385,19 @@ class ForgotPasswordSerializer(serializers.Serializer):
 class ResetPasswordSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()
-    password = serializers.CharField(write_only=True, min_length=6)
-    konfirmasi_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(
+        write_only=True, min_length=8,
+        error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
+    )
+    konfirmasi_password = serializers.CharField(
+        write_only=True,
+        error_messages={'blank': 'Konfirmasi password wajib diisi.', 'required': 'Konfirmasi password wajib diisi.'}
+    )
+
+    def validate_password(self, value):
+        if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("Password harus mengandung kombinasi huruf dan angka.")
+        return value
 
     def validate(self, data):
         if data['password'] != data['konfirmasi_password']:
