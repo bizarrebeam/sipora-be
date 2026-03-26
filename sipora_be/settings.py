@@ -1,10 +1,18 @@
+"""
+Master Configuration File for the SIPORA Backend.
+
+This module houses all deployment environments, installed applications, middleware stacks,
+database connectors, security policies (CORS/CSRF), and third-party integrations (SimpleJWT, SMTP).
+"""
+
 from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Only load .env if it exists and we're not in production/Railway
+
+# Dynamically load the contiguous .env file natively if not operating within the Railway production container.
 if not os.getenv('RAILWAY_STATIC_URL'):
     load_dotenv(os.path.join(BASE_DIR, '.env'), override=False)
 
@@ -124,7 +132,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Konfigurasi CORS & CSRF 
+# ─── Cross-Origin Resource Sharing (CORS) & CSRF ──────────────────────────────
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://sipora-fe.vercel.app')
 FRONTEND_ORIGIN = FRONTEND_URL.rstrip('/')
 
@@ -187,15 +195,15 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{
 if EMAIL_USE_CONSOLE_BACKEND:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Password reset token expiry (1 hour)
+# Cryptographic TTL length for SMTP password resets.
 PASSWORD_RESET_TIMEOUT = 3600
 
-# ─── Railway/Docker IPv4 Fix ──────────────────────────────────────────────────
+# ─── Railway / Containerized IPv4 Resolution Fix ──────────────────────────────
 if PRODUCTION:
     import socket
     import smtplib
     
-    # Backup original
+    # Store reference to the original C-level socket resolution method.
     orig_getaddrinfo = socket.getaddrinfo
 
     def forced_ipv4_getaddrinfo(*args, **kwargs):

@@ -1,10 +1,17 @@
+"""
+API Views for the Account (Akun) Application.
+
+This module provides REST endpoints for user authentication, profile management,
+password recovery, and role-based administrative workflows, utilizing JWT for stateless sessions.
+"""
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.conf import settings
 
 from .serializers import (
@@ -27,6 +34,10 @@ from log_aktivitas.utils import catat_log
 from django.core.management import call_command
 
 class SeedDatabaseView(APIView):
+    """
+    Utility endpoint for seeding the database with initial users.
+    Restricted to development environments only.
+    """
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -49,6 +60,10 @@ class SeedDatabaseView(APIView):
 
 
 class RegisterSiswaView(APIView):
+    """
+    Handles public registration for Siswa (Student) accounts.
+    Automatically generates an audit log entry upon successful creation.
+    """
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -68,6 +83,9 @@ class RegisterSiswaView(APIView):
 
 
 class LoginView(APIView):
+    """
+    Authenticates a user and issues HTTP-Only cookies containing access and refresh tokens.
+    """
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -103,6 +121,10 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
+    """
+    Logs out the authenticated user by blacklisting their current refresh token
+    and instructing the client browser to delete all authentication cookies.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -127,6 +149,10 @@ class LogoutView(APIView):
 
 
 class CookieTokenRefreshView(APIView):
+    """
+    Consumes a valid refresh token from HTTP-Only cookies to issue a new access token.
+    Supports refresh token rotation if configured in settings.
+    """
     permission_classes = [AllowAny]
     
     def post(self, request):
@@ -186,6 +212,9 @@ class CookieTokenRefreshView(APIView):
 
 
 class ProfilView(APIView):
+    """
+    Retrieves the complete profile data of the currently authenticated user.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -194,6 +223,10 @@ class ProfilView(APIView):
 
 
 class EditProfilView(APIView):
+    """
+    Allows users to update specific demographic fields (e.g., class or subject).
+    Records changes in the audit log.
+    """
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
@@ -224,6 +257,10 @@ class EditProfilView(APIView):
 
 
 class UbahPasswordView(APIView):
+    """
+    Provides a secure endpoint for authenticated users to change their password.
+    Requires verification of the existing password.
+    """
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
@@ -234,9 +271,13 @@ class UbahPasswordView(APIView):
         return Response(serializer.errors, status=400)
 
 
-# ─── Forgot Password ──────────────────────────────────────────────────────────
+# ─── Password Recovery Workflows ──────────────────────────────────────────────
 
 class ForgotPasswordView(APIView):
+    """
+    Initiates the password reset workflow by sending an email with a secure token.
+    Provides a masked email address response for immediate UI feedback.
+    """
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -251,6 +292,10 @@ class ForgotPasswordView(APIView):
 
 
 class ResetPasswordView(APIView):
+    """
+    Completes the password recovery workflow.
+    Validates the emailed token and assigns the new password securely.
+    """
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -268,9 +313,12 @@ class ResetPasswordView(APIView):
         return Response(serializer.errors, status=400)
 
 
-# ─── Admin Account Management ─────────────────────────────────────────────────
+# ─── Administrative Account Management ────────────────────────────────────────
 
 class AdminBuatAkunView(APIView):
+    """
+    Allows 'Kemahasiswaan' administrators to provision internal 'Guru' or 'Guru BK' accounts directly.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('kemahasiswaan')
@@ -310,6 +358,10 @@ class AdminBuatAkunView(APIView):
 
 
 class AdminDaftarAkunView(APIView):
+    """
+    Provides paginated, filtered, and searchable read access to the system's user directory.
+    'Kemahasiswaan' can map all users, while 'Guru BK' is restricted to students.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('kemahasiswaan', 'guru_bk')
@@ -366,9 +418,12 @@ class AdminDaftarAkunView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
-# ─── Admin: Verify Student ────────────────────────────────────────────────────
+# ─── Administrative Verification ──────────────────────────────────────────────
 
 class AdminVerifikasiSiswaView(APIView):
+    """
+    Dedicated endpoint for administrators to manually verify a student's authenticity.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('kemahasiswaan')
@@ -396,3 +451,23 @@ class AdminVerifikasiSiswaView(APIView):
             "message": f"Akun siswa {siswa.nama_lengkap} berhasil diverifikasi.",
             "data": PenggunaSerializer(siswa).data,
         })
+
+
+# ─── Administrative Statistics ────────────────────────────────────────────────
+
+class AdminJumlahAkunView(APIView):
+    """
+    Aggregates statistical counts of user populations grouped by their assigned roles.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @role_required('kemahasiswaan', 'guru_bk')
+    def get(self, request):
+        qs = Pengguna.objects.all()
+        # guru_bk can only see siswa counts
+        if request.user.role == 'guru_bk':
+            qs = qs.filter(role='siswa')
+
+        counts = qs.values('role').annotate(total=Count('id'))
+        result = {item['role']: item['total'] for item in counts}
+        return Response(result)
