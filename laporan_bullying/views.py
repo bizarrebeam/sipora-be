@@ -1,3 +1,10 @@
+"""
+Views module for the laporan_bullying application.
+
+Contains API views to manage bullying report features:
+creation, modification, cancellation, list retrieval, 
+and specific detail retrieval for a report.
+"""
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,12 +15,29 @@ from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 from .serializers import LaporanBullyingCreateUpdateSerializer, LaporanBullyingListSerializer, LaporanBullyingDetailSerializer, RiwayatStatusBullyingSerializer
 from django.db.models import Q
 
-# Fungsi untuk membuat laporan bullying
 class BuatLaporanBullyingView(APIView):
+    """
+    API View for creating a new bullying report.
+    
+    Requires authentication. Only users with the 'siswa' (student) or 'guru' (teacher)
+    role are permitted to create a report through this endpoint.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('siswa', 'guru')
     def post(self, request):
+        """
+        Handles HTTP POST requests to create a bullying report.
+        
+        Args:
+            request: The HTTP request object containing report data and proof photo files.
+            
+        Returns:
+            Response: DRF Response object containing the status of the report creation.
+                     - 201 Created: If the report is successfully created.
+                     - 400 Bad Request: If data is invalid, photo count exceeds 5, 
+                                        file size exceeds 5MB, or file type is not an image.
+        """
         serializer = LaporanBullyingCreateUpdateSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -78,12 +102,32 @@ class BuatLaporanBullyingView(APIView):
 
         return Response(serializer.errors, status=400)
 
-# Fungsi untuk mengedit laporan bullying
 class EditLaporanBullyingView(APIView):
+    """
+    API View for modifying or updating an existing bullying report.
+    
+    Only accessible by users with the 'siswa' or 'guru' role.
+    Additionally, only the report creator (pelapor) has the right to modify their own report.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('siswa', 'guru')
     def put(self, request, id):
+        """
+        Handles PUT requests to partially or fully update a bullying report.
+        
+        Args:
+            request (Request): Request object containing the update payload.
+            id (int/str): ID/Primary Key of the LaporanBullying entry to be updated.
+            
+        Returns:
+            Response:
+                - 200 OK if the report is successfully updated.
+                - 404 Not Found if the report is not found.
+                - 403 Forbidden if the user attempts to modify someone else's report.
+                - 400 Bad Request if the report has already been processed (not 'menunggu'),
+                  or if the serializer data format is invalid.
+        """
         try:
             laporan = LaporanBullying.objects.get(id=id)
         except LaporanBullying.DoesNotExist:
@@ -123,12 +167,32 @@ class EditLaporanBullyingView(APIView):
 
         return Response(serializer.errors, status=400)
 
-# Fungsi untuk membatalkan laporan bullying
 class CancelLaporanBullyingView(APIView):
+    """
+    API View for canceling a submitted bullying report.
+    
+    Only the report creator ('siswa' or 'guru') is allowed to cancel it.
+    Reports can only be canceled if they are still in the 'menunggu' (waiting) status.
+    """
     permission_classes = [IsAuthenticated]
 
     @role_required('siswa', 'guru')
     def put(self, request, id):
+        """
+        Handles PUT requests to update the report status to 'dibatalkan' (canceled).
+        
+        Args:
+            request (Request): Request object containing the 'alasan_pembatalan' payload.
+            id (int/str): ID/Primary Key of the LaporanBullying entry to be canceled.
+            
+        Returns:
+            Response:
+                - 200 OK if the cancellation is successful.
+                - 400 Bad Request if the reason has less than 50 characters, 
+                  or if the report is no longer in the 'menunggu' status.
+                - 403 Forbidden if the creator tries to cancel a report that isn't theirs.
+                - 404 Not Found if the report ID does not exist in the database.
+        """
         alasan = request.data.get('alasan_pembatalan')
 
         if not alasan or len(alasan) < 50:
@@ -178,11 +242,32 @@ class CancelLaporanBullyingView(APIView):
 
         return Response({"message": "Laporan berhasil dibatalkan"})
 
-# Fungsi untuk melihat list laporan bullying
 class ListLaporanBullyingView(APIView):
+    """
+    API View to retrieve a list of bullying reports with filtering, 
+    searching, sorting, and pagination features.
+    
+    Access and scope of displayed data:
+    - 'kemahasiswaan' / 'guru_bk': Can view all reports from all creators.
+    - 'siswa' / 'guru': Can only view reports created by themselves.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        """
+        Handles GET requests to retrieve a collection of reports based on
+        the user's role and query parameters.
+        
+        Query Parameters Scenario:
+        - status: Filters based on report status.
+        - search: Searches text-based fields (judul, lokasi, no_laporan).
+        - date: Filters based on tanggal_kejadian (incident date).
+        - sort: 'asc' to order oldest-first; otherwise defaults to newest-first.
+        - page, page_size: Used to handle pagination.
+        
+        Returns:
+            Response: List of reports along with pagination metadata (count, results).
+        """
         user = request.user
 
         if user.role in ['kemahasiswaan', 'guru_bk']:
@@ -200,7 +285,7 @@ class ListLaporanBullyingView(APIView):
             'id', 'no_laporan', 'judul', 'tanggal_kejadian', 'lokasi',
             'status', 'tanggal_laporan', 'anonimitas',
             'pelapor__id', 'pelapor__nama_lengkap', 'pelapor__kelas',
-            'pelapor__is_verified', 'pelapor__role'
+            'pelapor__is_verified', 'pelapor__role', 'jenis_bullying'
         )
 
         # Filter berdasarkan status
@@ -250,18 +335,34 @@ class ListLaporanBullyingView(APIView):
             "results": serializer.data
         })
 
-# Fungsi untuk melihat detail laporan bullying
 class DetailLaporanBullyingView(APIView):
+    """
+    API View to view the full details of a specific bullying report.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
+        """
+        Handles GET requests to return detailed data of a single LaporanBullying entry,
+        including its relations.
+        
+        Args:
+            request (Request): The API request object.
+            id (int/str): Unique ID/Primary Key of the requested LaporanBullying.
+            
+        Returns:
+            Response: 
+                - 200 OK with the comprehensive details of the report.
+                - 404 Not Found if the entry does not exist, or if a user attempts 
+                  to view someone else's report (unless they are Kemahasiswaan/BK staff).
+        """
         try:
             laporan = LaporanBullying.objects.get(id=id)
         except LaporanBullying.DoesNotExist:
             return Response({"error": "Laporan belum ditemukan"}, status=404)
 
         if request.user.role in ['siswa', 'guru'] and laporan.pelapor != request.user:
-            return Response({"error": "Akses ditolak"}, status=403)
+            return Response({"error": "Laporan belum ditemukan"}, status=404)
 
         serializer = LaporanBullyingDetailSerializer(
             laporan,
