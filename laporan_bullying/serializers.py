@@ -113,6 +113,7 @@ class LaporanBullyingCreateUpdateSerializer(serializers.ModelSerializer):
             'deskripsi',
             'lokasi',
             'tanggal_kejadian',
+            'waktu_kejadian',
             'jenis_bullying',
             'anonimitas'
         ]
@@ -195,6 +196,7 @@ class LaporanBullyingListSerializer(serializers.ModelSerializer):
             'no_laporan',
             'judul',
             'tanggal_kejadian',
+            'waktu_kejadian',
             'lokasi',
             'status',
             'nama_pengirim',
@@ -248,6 +250,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
             'deskripsi',
             'lokasi',
             'tanggal_kejadian',
+            'waktu_kejadian',
             'jenis_bullying',
             'status',
             'foto_bukti',
