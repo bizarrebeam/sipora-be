@@ -374,10 +374,7 @@ class AdminDaftarAkunView(APIView):
         role = request.query_params.get('role', '').strip()
         is_verified = request.query_params.get('is_verified', '').strip()
 
-        base_qs = Pengguna.objects.only(
-            'id', 'nama_lengkap', 'nis', 'nuptk', 'username', 'role', 'kelas', 
-            'mata_pelajaran', 'is_verified', 'date_joined'
-        ).all()
+        base_qs = Pengguna.objects.prefetch_related('riwayat_mengajar').all()
         if search:
             base_qs = base_qs.filter(
                 Q(nama_lengkap__icontains=search) |
