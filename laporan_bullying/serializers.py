@@ -20,10 +20,14 @@ class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
         fields = ['id', 'foto', 'uploaded_at']
 
     def get_foto(self, obj):
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.foto.url)
-        return obj.foto.url
+        if not obj.foto:
+            return None
+        url = obj.foto.url
+        if not url.startswith('http'):
+            request = self.context.get('request')
+            if request:
+                url = request.build_absolute_uri(url)
+        return url
 
 class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
