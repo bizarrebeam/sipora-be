@@ -62,6 +62,7 @@ class LaporanBullying(models.Model):
     deskripsi = models.TextField()
     lokasi = models.CharField(max_length=255, db_index=True)
     tanggal_kejadian = models.DateField(db_index=True)
+    waktu_kejadian = models.TimeField(null=True, blank=True, db_index=True)
     jenis_bullying = models.CharField(max_length=20, choices=JENIS_BULLYING_CHOICES, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)
