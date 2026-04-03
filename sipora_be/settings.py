@@ -141,6 +141,8 @@ if PRODUCTION:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ─── Cross-Origin Resource Sharing (CORS) & CSRF ──────────────────────────────
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://sipora-fe.vercel.app').strip('\"\'')
 FRONTEND_ORIGIN = FRONTEND_URL.rstrip('/')
 
