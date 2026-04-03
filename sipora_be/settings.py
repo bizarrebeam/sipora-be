@@ -134,7 +134,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # In production, use Google Drive as the file storage backend so that uploaded
 # images persist across Railway's ephemeral container restarts.
 if PRODUCTION:
-    DEFAULT_FILE_STORAGE = 'core.gdrive_storage.GoogleDriveStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "core.gdrive_storage.GoogleDriveStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
     GDRIVE_SERVICE_ACCOUNT_JSON = os.getenv('GDRIVE_SERVICE_ACCOUNT_JSON', '').strip('\"\'')
     GDRIVE_ROOT_FOLDER_ID = os.getenv('GDRIVE_ROOT_FOLDER_ID', '').strip('\"\'')
 
