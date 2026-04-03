@@ -130,20 +130,16 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# ─── Google Drive Storage (Production Only) ────────────────────────────────────
-# In production, use Google Drive as the file storage backend so that uploaded
-# images persist across Railway's ephemeral container restarts.
+# ─── Static files & Media Storage ─────────────────────────────────────────────
 if PRODUCTION:
     STORAGES = {
         "default": {
-            "BACKEND": "core.gdrive_storage.GoogleDriveStorage",
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "staticfiles": {
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
-    GDRIVE_SERVICE_ACCOUNT_JSON = os.getenv('GDRIVE_SERVICE_ACCOUNT_JSON', '').strip('\"\'')
-    GDRIVE_ROOT_FOLDER_ID = os.getenv('GDRIVE_ROOT_FOLDER_ID', '').strip('\"\'')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
