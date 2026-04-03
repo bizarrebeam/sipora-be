@@ -18,8 +18,8 @@ if not os.getenv('RAILWAY_STATIC_URL'):
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+PRODUCTION = os.getenv('PRODUCTION', 'False').strip('\"\'').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'True').strip('\"\'').lower() == 'true'
 
 ALLOWED_HOST_ENV = os.getenv('ALLOWED_HOSTS')
 if ALLOWED_HOST_ENV:
@@ -135,13 +135,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # images persist across Railway's ephemeral container restarts.
 if PRODUCTION:
     DEFAULT_FILE_STORAGE = 'core.gdrive_storage.GoogleDriveStorage'
-    GDRIVE_SERVICE_ACCOUNT_JSON = os.getenv('GDRIVE_SERVICE_ACCOUNT_JSON', '')
-    GDRIVE_ROOT_FOLDER_ID = os.getenv('GDRIVE_ROOT_FOLDER_ID', '')
+    GDRIVE_SERVICE_ACCOUNT_JSON = os.getenv('GDRIVE_SERVICE_ACCOUNT_JSON', '').strip('\"\'')
+    GDRIVE_ROOT_FOLDER_ID = os.getenv('GDRIVE_ROOT_FOLDER_ID', '').strip('\"\'')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ─── Cross-Origin Resource Sharing (CORS) & CSRF ──────────────────────────────
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://sipora-fe.vercel.app')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://sipora-fe.vercel.app').strip('\"\'')
 FRONTEND_ORIGIN = FRONTEND_URL.rstrip('/')
 
 CORS_ALLOWED_ORIGINS = [
