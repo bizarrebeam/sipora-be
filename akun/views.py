@@ -105,6 +105,7 @@ class LoginView(APIView):
                 secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                 httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                 samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
             )
             
             response.set_cookie(
@@ -114,6 +115,7 @@ class LoginView(APIView):
                 secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                 httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                 samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
             )
             
             return response
@@ -193,6 +195,7 @@ class CookieTokenRefreshView(APIView):
                 secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                 httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                 samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
             )
             
             if getattr(settings.SIMPLE_JWT, 'ROTATE_REFRESH_TOKENS', False):
@@ -203,6 +206,7 @@ class CookieTokenRefreshView(APIView):
                     secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                     httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                     samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                    path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
                 )
                 
             return response
