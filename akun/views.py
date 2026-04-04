@@ -21,6 +21,7 @@ from .serializers import (
     LoginSerializer,
     PenggunaSerializer,
     PenggunaListSerializer,
+    AdminUpdateGuruSerializer,
     EditProfilSerializer,
     UbahPasswordSerializer,
     ForgotPasswordSerializer,
@@ -358,6 +359,38 @@ class AdminBuatAkunView(APIView):
             )
             label = 'Guru BK' if role_type == 'guru_bk' else 'Guru'
             return Response({"message": f"Akun {label} berhasil dibuat."}, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class AdminUpdateGuruView(APIView):
+    """
+    Dedicated endpoint for Administrators (Kemahasiswaan) to update a Guru's profile.
+    Allows updating basic fields and the active semester's teaching workload.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @role_required('kemahasiswaan')
+    def put(self, request, user_id):
+        try:
+            guru = Pengguna.objects.get(pk=user_id, role='guru')
+        except Pengguna.DoesNotExist:
+            return Response({"detail": "Guru tidak ditemukan."}, status=404)
+
+        serializer = AdminUpdateGuruSerializer(guru, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            
+            catat_log(
+                user=request.user,
+                aksi='EDIT_AKUN',
+                deskripsi=f'Admin mengedit akun Guru: {guru.nama_lengkap} ({guru.nuptk})',
+                modul='akun',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            return Response({
+                "message": f"Data guru {guru.nama_lengkap} berhasil diperbarui.",
+                "data": PenggunaSerializer(guru).data
+            })
         return Response(serializer.errors, status=400)
 
 
