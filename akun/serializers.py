@@ -630,3 +630,4 @@ class ResetPasswordSerializer(serializers.Serializer):
         self.user.set_password(self.validated_data['password'])
         self.user.save()
         return self.user
+
