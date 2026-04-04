@@ -185,9 +185,18 @@ AUTH_COOKIE_HTTP_ONLY = True
 AUTH_COOKIE_PATH = '/'
 AUTH_COOKIE_SAMESITE = 'None' if PRODUCTION else 'Lax'
 
+# ─── CSRF & Session Cookie Security ───────────────────────────────────────────
+# Ensuring these match the authentication cookie policy for cross-site stability,
+# specifically to resolve 'Sesi Berakhir' issues on mobile browsers like Safari.
+CSRF_COOKIE_SAMESITE = 'None' if PRODUCTION else 'Lax'
+CSRF_COOKIE_SECURE = PRODUCTION
+SESSION_COOKIE_SAMESITE = 'None' if PRODUCTION else 'Lax'
+SESSION_COOKIE_SECURE = PRODUCTION
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
