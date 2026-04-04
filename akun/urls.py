@@ -15,6 +15,7 @@ from .views import (
     EditProfilView,
     UbahPasswordView,
     AdminBuatAkunView,
+    AdminUpdateGuruView,
     AdminDaftarAkunView,
     CookieTokenRefreshView,
     SeedDatabaseView,
@@ -38,6 +39,7 @@ urlpatterns = [
     
     # Role-Based Administrative Endpoints
     path('admin/buat/', AdminBuatAkunView.as_view(), name='admin-buat-akun'),
+    path('admin/update-guru/<uuid:user_id>/', AdminUpdateGuruView.as_view(), name='admin-update-guru'),
     path('admin/daftar/', AdminDaftarAkunView.as_view(), name='admin-daftar-akun'),
     path('admin/verifikasi-siswa/<uuid:user_id>/', AdminVerifikasiSiswaView.as_view(), name='admin-verifikasi-siswa'),
     path('admin/jumlah/', AdminJumlahAkunView.as_view(), name='admin-jumlah-akun'),

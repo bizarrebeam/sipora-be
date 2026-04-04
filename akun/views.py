@@ -21,6 +21,7 @@ from .serializers import (
     LoginSerializer,
     PenggunaSerializer,
     PenggunaListSerializer,
+    AdminUpdateGuruSerializer,
     EditProfilSerializer,
     UbahPasswordSerializer,
     ForgotPasswordSerializer,
@@ -105,6 +106,7 @@ class LoginView(APIView):
                 secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                 httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                 samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
             )
             
             response.set_cookie(
@@ -114,6 +116,7 @@ class LoginView(APIView):
                 secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                 httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                 samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
             )
             
             return response
@@ -193,6 +196,7 @@ class CookieTokenRefreshView(APIView):
                 secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                 httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                 samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
             )
             
             if getattr(settings.SIMPLE_JWT, 'ROTATE_REFRESH_TOKENS', False):
@@ -203,6 +207,7 @@ class CookieTokenRefreshView(APIView):
                     secure=getattr(settings, 'AUTH_COOKIE_SECURE', False),
                     httponly=getattr(settings, 'AUTH_COOKIE_HTTP_ONLY', True),
                     samesite=getattr(settings, 'AUTH_COOKIE_SAMESITE', 'Lax'),
+                    path=getattr(settings, 'AUTH_COOKIE_PATH', '/'),
                 )
                 
             return response
@@ -357,6 +362,38 @@ class AdminBuatAkunView(APIView):
         return Response(serializer.errors, status=400)
 
 
+class AdminUpdateGuruView(APIView):
+    """
+    Dedicated endpoint for Administrators (Kemahasiswaan) to update a Guru's profile.
+    Allows updating basic fields and the active semester's teaching workload.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @role_required('kemahasiswaan')
+    def put(self, request, user_id):
+        try:
+            guru = Pengguna.objects.get(pk=user_id, role='guru')
+        except Pengguna.DoesNotExist:
+            return Response({"detail": "Guru tidak ditemukan."}, status=404)
+
+        serializer = AdminUpdateGuruSerializer(guru, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            
+            catat_log(
+                user=request.user,
+                aksi='EDIT_AKUN',
+                deskripsi=f'Admin mengedit akun Guru: {guru.nama_lengkap} ({guru.nuptk})',
+                modul='akun',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            return Response({
+                "message": f"Data guru {guru.nama_lengkap} berhasil diperbarui.",
+                "data": PenggunaSerializer(guru).data
+            })
+        return Response(serializer.errors, status=400)
+
+
 class AdminDaftarAkunView(APIView):
     """
     Provides paginated, filtered, and searchable read access to the system's user directory.
@@ -370,10 +407,7 @@ class AdminDaftarAkunView(APIView):
         role = request.query_params.get('role', '').strip()
         is_verified = request.query_params.get('is_verified', '').strip()
 
-        base_qs = Pengguna.objects.only(
-            'id', 'nama_lengkap', 'nis', 'nuptk', 'username', 'role', 'kelas', 
-            'mata_pelajaran', 'is_verified', 'date_joined'
-        ).all()
+        base_qs = Pengguna.objects.prefetch_related('riwayat_mengajar').all()
         if search:
             base_qs = base_qs.filter(
                 Q(nama_lengkap__icontains=search) |

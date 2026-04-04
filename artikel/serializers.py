@@ -104,7 +104,9 @@ class ArtikelSerializer(serializers.ModelSerializer):
         foto_list = []
         for foto in obj.foto_artikel.all():
             if foto.foto and hasattr(foto.foto, 'url'):
-                url = request.build_absolute_uri(foto.foto.url) if request else foto.foto.url
+                url = foto.foto.url
+                if not url.startswith('http') and request:
+                    url = request.build_absolute_uri(url)
                 foto_list.append(url)
         return foto_list
 
@@ -115,7 +117,10 @@ class ArtikelSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         foto = obj.foto_artikel.first()
         if foto and foto.foto and hasattr(foto.foto, 'url'):
-            return request.build_absolute_uri(foto.foto.url) if request else foto.foto.url
+            url = foto.foto.url
+            if not url.startswith('http') and request:
+                url = request.build_absolute_uri(url)
+            return url
         return None
 
     def get_nama_penulis(self, obj):

@@ -42,19 +42,14 @@ class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
         fields = ['id', 'foto', 'uploaded_at']
 
     def get_foto(self, obj):
-        """
-        Retrieves the absolute URL of the uploaded photo.
-        
-        Args:
-            obj (FotoBuktiBullying): The photo instance being serialized.
-            
-        Returns:
-            str: The absolute or relative URL string to the image file.
-        """
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.foto.url)
-        return obj.foto.url
+        if not obj.foto:
+            return None
+        url = obj.foto.url
+        if not url.startswith('http'):
+            request = self.context.get('request')
+            if request:
+                url = request.build_absolute_uri(url)
+        return url
 
 class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
     """

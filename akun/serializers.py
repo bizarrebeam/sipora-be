@@ -7,7 +7,7 @@ custom user model across various authentication and administrative workflows.
 
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import Pengguna, get_tahun_ajaran, get_semester
+from .models import Pengguna, MataPelajaranGuruSemester, get_tahun_ajaran, get_semester
 from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -91,10 +91,16 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         write_only=True, min_length=8,
         error_messages={'min_length': 'Password harus minimal 8 karakter.', 'blank': 'Password wajib diisi.', 'required': 'Password wajib diisi.'}
     )
+    riwayat_mengajar = serializers.ListField(
+        child=serializers.DictField(), required=False
+    )
 
     class Meta:
         model = Pengguna
-        fields = ('nuptk', 'email', 'nama_lengkap', 'mata_pelajaran', 'password')
+        fields = ('nuptk', 'email', 'nama_lengkap', 'mata_pelajaran', 'password', 'riwayat_mengajar')
+        extra_kwargs = {
+            'mata_pelajaran': {'required': False, 'allow_null': True, 'allow_blank': True}
+        }
 
     def validate_nuptk(self, value):
         if not value.isdigit() or len(value) != 16:
@@ -115,27 +121,56 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Email sudah terdaftar.")
         return value.strip().lower()
 
-    def validate_mata_pelajaran(self, value):
-        if not value or not value.strip():
-            raise serializers.ValidationError("Mata pelajaran wajib diisi.")
-        return value.strip()
-
-    def validate_password(self, value):
-        if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
-            raise serializers.ValidationError("Password harus mengandung kombinasi huruf dan angka.")
-        return value
+    def validate_riwayat_mengajar(self, value):
+        if not value:
+            raise serializers.ValidationError("Riwayat mengajar tidak boleh kosong.")
+        
+        cleaned_data = []
+        for item in value:
+            nama = item.get('nama_mata_pelajaran', '').strip()
+            kelas = item.get('kelas_diajar', [])
+            
+            if not nama:
+                raise serializers.ValidationError("Nama mata pelajaran tidak boleh kosong atau hanya berisi spasi.")
+            if not kelas or not isinstance(kelas, list) or len(kelas) == 0:
+                raise serializers.ValidationError(f"Mata pelajaran '{nama}' harus memiliki minimal satu kelas yang diajar.")
+            
+            cleaned_data.append({
+                'nama_mata_pelajaran': nama,
+                'kelas_diajar': kelas
+            })
+        return cleaned_data
 
     def create(self, validated_data):
-        return Pengguna.objects.create_user(
+        riwayat_data = validated_data.pop('riwayat_mengajar', [])
+        
+        # Consistent string fallback for old field
+        mata_pelajaran_str = ", ".join([r['nama_mata_pelajaran'] for r in riwayat_data])
+        
+        user = Pengguna.objects.create_user(
             username=validated_data['nuptk'],
             nuptk=validated_data['nuptk'],
             email=validated_data['email'],
             nama_lengkap=validated_data['nama_lengkap'],
-            mata_pelajaran=validated_data['mata_pelajaran'],
+            mata_pelajaran=mata_pelajaran_str,
             password=validated_data['password'],
             role='guru',
             is_verified=True,
         )
+        
+        ta = get_tahun_ajaran()
+        sem = get_semester()
+        
+        for item in riwayat_data:
+            MataPelajaranGuruSemester.objects.create(
+                guru=user,
+                nama_mata_pelajaran=item.get("nama_mata_pelajaran"),
+                kelas_diajar=item.get("kelas_diajar", []),
+                tahun_ajaran=ta,
+                semester=sem
+            )
+            
+        return user
 
 
 class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
@@ -201,6 +236,86 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
         )
 
 
+class AdminUpdateGuruSerializer(serializers.ModelSerializer):
+    """
+    Serializer for administrators updating Teacher (Guru) accounts.
+    Allows updating name, email, and teaching history.
+    """
+    riwayat_mengajar = serializers.ListField(
+        child=serializers.DictField(), required=False
+    )
+
+    class Meta:
+        model = Pengguna
+        fields = ('nama_lengkap', 'email', 'riwayat_mengajar')
+
+    def validate_nama_lengkap(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Nama lengkap wajib diisi.")
+        return value.strip()
+
+    def validate_email(self, value):
+        instance = self.instance
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email wajib diisi.")
+        if Pengguna.objects.filter(email=value).exclude(pk=instance.pk).exists():
+            raise serializers.ValidationError("Email sudah digunakan oleh akun lain.")
+        return value.strip().lower()
+
+    def validate_riwayat_mengajar(self, value):
+        if value is None:
+            return None
+        if not value:
+            raise serializers.ValidationError("Riwayat mengajar tidak boleh kosong.")
+        
+        cleaned_data = []
+        for item in value:
+            nama = item.get('nama_mata_pelajaran', '').strip()
+            kelas = item.get('kelas_diajar', [])
+            
+            if not nama:
+                raise serializers.ValidationError("Nama mata pelajaran tidak boleh kosong atau hanya berisi spasi.")
+            if not kelas or not isinstance(kelas, list) or len(kelas) == 0:
+                raise serializers.ValidationError(f"Mata pelajaran '{nama}' harus memiliki minimal satu kelas yang diajar.")
+            
+            cleaned_data.append({
+                'nama_mata_pelajaran': nama,
+                'kelas_diajar': kelas
+            })
+        return cleaned_data
+
+    def update(self, instance, validated_data):
+        riwayat_data = validated_data.pop('riwayat_mengajar', None)
+        
+        instance.nama_lengkap = validated_data.get('nama_lengkap', instance.nama_lengkap).strip()
+        instance.email = validated_data.get('email', instance.email).strip().lower()
+        
+        if riwayat_data is not None:
+            # Consistent string fallback for old field
+            mata_pelajaran_str = ", ".join([r['nama_mata_pelajaran'] for r in riwayat_data])
+            instance.mata_pelajaran = mata_pelajaran_str
+
+            ta = get_tahun_ajaran()
+            sem = get_semester()
+            
+            # Wipe current semester mapping and replace
+            MataPelajaranGuruSemester.objects.filter(
+                guru=instance, tahun_ajaran=ta, semester=sem
+            ).delete()
+            
+            for item in riwayat_data:
+                MataPelajaranGuruSemester.objects.create(
+                    guru=instance,
+                    nama_mata_pelajaran=item.get("nama_mata_pelajaran"),
+                    kelas_diajar=item.get("kelas_diajar", []),
+                    tahun_ajaran=ta,
+                    semester=sem
+                )
+        
+        instance.save()
+        return instance
+
+
 # ─── Authentication Workflows ───────────────────────────────────────────────────
 
 class LoginSerializer(serializers.Serializer):
@@ -251,6 +366,12 @@ class LoginSerializer(serializers.Serializer):
 
 # ─── Profile Management ─────────────────────────────────────────────────────────
 
+class MataPelajaranGuruSemesterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MataPelajaranGuruSemester
+        fields = ('id', 'nama_mata_pelajaran', 'kelas_diajar', 'tahun_ajaran', 'semester')
+        read_only_fields = ('id',)
+
 class PenggunaSerializer(serializers.ModelSerializer):
     """
     Comprehensive user serializer used for transmitting authorized profile details.
@@ -258,6 +379,7 @@ class PenggunaSerializer(serializers.ModelSerializer):
     """
     tahun_ajaran = serializers.SerializerMethodField()
     semester = serializers.SerializerMethodField()
+    riwayat_mengajar = MataPelajaranGuruSemesterSerializer(many=True, read_only=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -270,7 +392,7 @@ class PenggunaSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'nis', 'nuptk', 'nama_lengkap', 'email',
             'role', 'kelas', 'mata_pelajaran', 'is_active', 'is_verified',
-            'date_joined', 'tahun_ajaran', 'semester'
+            'date_joined', 'tahun_ajaran', 'semester', 'riwayat_mengajar'
         )
 
     def get_tahun_ajaran(self, obj):
@@ -282,11 +404,13 @@ class PenggunaSerializer(serializers.ModelSerializer):
 
 class PenggunaListSerializer(serializers.ModelSerializer):
     """Lean serializer for admin list view — no computed fields."""
+    riwayat_mengajar = MataPelajaranGuruSemesterSerializer(many=True, read_only=True)
+
     class Meta:
         model = Pengguna
         fields = (
-            'id', 'username', 'nis', 'nuptk', 'nama_lengkap',
-            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined'
+            'id', 'username', 'nis', 'nuptk', 'nama_lengkap', 'email',
+            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined', 'riwayat_mengajar'
         )
 
 
@@ -298,21 +422,67 @@ class EditProfilSerializer(serializers.Serializer):
     kelas = serializers.ChoiceField(
         choices=Pengguna.KELAS_CHOICES, required=False, allow_null=True
     )
-    mata_pelajaran = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    riwayat_mengajar = serializers.ListField(
+        child=serializers.DictField(), required=False
+    )
 
     def validate(self, data):
         user = self.context['request'].user
         if user.role == 'siswa' and 'kelas' not in data:
             raise serializers.ValidationError("Kelas wajib diisi untuk siswa.")
-        if user.role == 'guru' and 'mata_pelajaran' not in data:
-            raise serializers.ValidationError("Mata pelajaran wajib diisi untuk guru.")
+        
+        if user.role == 'guru':
+            if 'riwayat_mengajar' not in data:
+                raise serializers.ValidationError("Riwayat mengajar pelajar wajib diisi untuk guru.")
+            
+            riwayat = data.get('riwayat_mengajar', [])
+            if not riwayat:
+                raise serializers.ValidationError("Riwayat mengajar tidak boleh kosong.")
+            
+            cleaned_riwayat = []
+            for item in riwayat:
+                nama = item.get('nama_mata_pelajaran', '').strip()
+                kelas = item.get('kelas_diajar', [])
+                
+                if not nama:
+                    raise serializers.ValidationError("Nama mata pelajaran tidak boleh kosong.")
+                if not kelas or len(kelas) == 0:
+                    raise serializers.ValidationError(f"Mata pelajaran '{nama}' harus memiliki minimal 1 kelas.")
+                
+                cleaned_riwayat.append({
+                    'nama_mata_pelajaran': nama,
+                    'kelas_diajar': kelas
+                })
+            data['riwayat_mengajar'] = cleaned_riwayat
+
         return data
 
     def update(self, instance, validated_data):
         if instance.role == 'siswa' and 'kelas' in validated_data:
             instance.kelas = validated_data['kelas']
-        if instance.role == 'guru' and 'mata_pelajaran' in validated_data:
-            instance.mata_pelajaran = validated_data['mata_pelajaran']
+        
+        if instance.role == 'guru' and 'riwayat_mengajar' in validated_data:
+            riwayat_data = validated_data['riwayat_mengajar']
+            # Simplified map names string for old field sync
+            instance.mata_pelajaran = ", ".join([r['nama_mata_pelajaran'] for r in riwayat_data])
+
+            ta = get_tahun_ajaran()
+            sem = get_semester()
+            
+            # Wipe existing map for current semester to replace them cleanly
+            MataPelajaranGuruSemester.objects.filter(
+                guru=instance, tahun_ajaran=ta, semester=sem
+            ).delete()
+            
+            for item in riwayat_data:
+                MataPelajaranGuruSemester.objects.create(
+                    guru=instance,
+                    nama_mata_pelajaran=item.get("nama_mata_pelajaran"),
+                    kelas_diajar=item.get("kelas_diajar", []),
+                    tahun_ajaran=ta,
+                    semester=sem
+                )
+
         instance.save()
         return instance
 
