@@ -110,3 +110,23 @@ def get_semester():
     """
     today = date.today()
     return "Ganjil" if today.month >= 7 else "Genap"
+
+class MataPelajaranGuruSemester(models.Model):
+    """
+    Model for mapping a teacher (Guru) to multiple subjects (Mata Pelajaran)
+    and the classes (Kelas) they teach, historically tracked per semester.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    guru = models.ForeignKey(Pengguna, on_delete=models.CASCADE, related_name='riwayat_mengajar', db_index=True)
+    nama_mata_pelajaran = models.CharField(max_length=255)
+    kelas_diajar = models.JSONField(default=list)  # ["7A", "9A", "9B"]
+    tahun_ajaran = models.CharField(max_length=9, db_index=True)  # ex: "2025/2026"
+    semester = models.CharField(max_length=6, db_index=True)  # "Ganjil" or "Genap"
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-tahun_ajaran', '-semester', 'nama_mata_pelajaran']
+
+    def __str__(self):
+        return f"{self.guru.username} - {self.nama_mata_pelajaran} ({self.semester} {self.tahun_ajaran})"
