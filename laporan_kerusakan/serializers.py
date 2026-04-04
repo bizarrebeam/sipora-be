@@ -161,7 +161,9 @@ class LaporanKerusakanSerializer(PelaporInfoMixin, serializers.ModelSerializer):
         foto_list = []
         for foto in obj.foto_bukti.all():
             if foto.foto and hasattr(foto.foto, 'url'):
-                url = request.build_absolute_uri(foto.foto.url) if request else foto.foto.url
+                url = foto.foto.url
+                if not url.startswith('http') and request:
+                    url = request.build_absolute_uri(url)
                 foto_list.append(url)
         return foto_list if foto_list else None
 

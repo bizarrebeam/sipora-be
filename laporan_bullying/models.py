@@ -1,19 +1,42 @@
-# Import library yang dibutuhkan
+"""
+Models module for the laporan_bullying application.
+
+This module contains the database schema definitions for bullying reports,
+including the main report data, uploaded evidence photos, and the status history.
+"""
+
 from django.db import models
 import uuid
 from django.conf import settings
 from django.utils import timezone
 
 
-# Fungsi untuk upload foto bukti bullying
 def laporan_bullying_foto_upload_path(instance, filename):
+    """
+    Generate a dynamic and unique upload path for bullying evidence photos.
+    
+    The photo will be uploaded to a directory named after the report's UUID
+    to keep files organized per report. The filename itself is randomized using UUID4.
+    
+    Args:
+        instance (FotoBuktiBullying): The photo instance being saved.
+        filename (str): The original filename of the uploaded image.
+        
+    Returns:
+        str: The generated file path indicating where the image will be stored.
+    """
     ext = filename.split('.')[-1]
     new_filename = f"{uuid.uuid4()}.{ext}"
     return f"laporan_bullying/{instance.laporan.id}/{new_filename}"
 
-# Model Laporan Bullying yang akan digunakan untuk menyimpan data laporan bullying
 class LaporanBullying(models.Model):
-    # Status laporan bullying dalam sistem
+    """
+    Model representing a Bullying Report submitted by a student or teacher.
+    
+    Stores comprehensive data about the bullying incident, including exactly what
+    happened, when and where it took place, and the report's processing status.
+    """
+    
     STATUS_CHOICES = [
         ('menunggu', 'Menunggu Konfirmasi'),
         ('diproses', 'Diproses'),
@@ -21,7 +44,6 @@ class LaporanBullying(models.Model):
         ('dibatalkan', 'Dibatalkan'),
     ]
 
-    # Jenis bullying
     JENIS_BULLYING_CHOICES = [
         ('verbal', 'Bullying Verbal'),
         ('fisik', 'Bullying Fisik'),
@@ -31,31 +53,35 @@ class LaporanBullying(models.Model):
         ('lainnya', 'Lainnya'),
     ]
 
-    # Id untuk identifier dan nomor laporan sebagai kode unik
+    # Primary key and unique human-readable identifier
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     no_laporan = models.CharField(max_length=20, unique=True, editable=False, db_index=True)
 
-    # Komponen laporan
+    # Core report components
     judul = models.CharField(max_length=255, db_index=True)
     deskripsi = models.TextField()
     lokasi = models.CharField(max_length=255, db_index=True)
     tanggal_kejadian = models.DateField(db_index=True)
+    waktu_kejadian = models.TimeField(null=True, blank=True, db_index=True)
     jenis_bullying = models.CharField(max_length=20, choices=JENIS_BULLYING_CHOICES, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)
 
+    # Relationship to the user who created the report
     pelapor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='laporan_bullying'
     )
 
+    # Flag for whether the reporter wants to remain anonymous
     anonimitas = models.BooleanField(default=False)
 
+    # Auto-generated timestamps
     tanggal_laporan = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Kemahasiswaan atau Guru BK yang memproses laporan
+    # Relationship indicating the staff member (Kemahasiswaan or Guru BK) handling the case
     diproses_oleh = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -65,10 +91,9 @@ class LaporanBullying(models.Model):
     )
     diproses_pada = models.DateTimeField(null=True, blank=True)
 
-    # Alasan pembatalan laporan
+    # Stores the reason if the report gets canceled
     alasan_pembatalan = models.TextField(blank=True, null=True)
 
-    # Meta data untuk laporan bullying
     class Meta:
         ordering = ['-tanggal_laporan']
         verbose_name = 'Laporan Bullying'
@@ -77,8 +102,13 @@ class LaporanBullying(models.Model):
     def __str__(self):
         return f"{self.no_laporan} - {self.judul}"
 
-    # Generate nomor laporan otomatis
     def save(self, *args, **kwargs):
+        """
+        Custom save method to auto-generate a unique report number (no_laporan).
+        
+        The format follows 'LB-<YEAR>-<SEQUENCE>', starting sequentially from '0001' 
+        for each given year. The sequence resets every new year.
+        """
         if not self.no_laporan:
             year = timezone.now().year
             last_laporan = LaporanBullying.objects.filter(
@@ -95,33 +125,46 @@ class LaporanBullying(models.Model):
 
         super().save(*args, **kwargs)
 
-    # Nama pelapor (anonim / asli)
     def get_nama_pelapor(self):
+        """
+        Return the reporter's name, substituting it with 'Pengguna Anonim'
+        (Anonymous User) if the reporter elected for anonymity.
+        
+        Returns:
+            str: The full name or the anonymous placeholder string.
+        """
         if self.anonimitas:
             return "Pengguna Anonim"
         return self.pelapor.nama_lengkap
 
-    # Status verifikasi akun pelapor
     def is_pelapor_terverifikasi(self):
+        """
+        Check whether the reporter's account has been verified.
+        
+        Returns:
+            bool: True if verified, False otherwise.
+        """
         return getattr(self.pelapor, 'is_verified', False)
 
-# Model Foto Bukti Bullying
 class FotoBuktiBullying(models.Model):
-    # Id untuk identifier foto
+    """
+    Model representing photographic evidence attached to a bullying report.
+    
+    A single report can have multiple photos associated with it via a Foreign Key relationship.
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # Laporan bullying yang terkait dengan foto
+    # The specific bullying report this photo belongs to
     laporan = models.ForeignKey(
         LaporanBullying,
         on_delete=models.CASCADE,
         related_name='foto_bukti'
     )
 
-    # Foto bukti bullying
+    # Image field configured with a dynamic upload path resolver
     foto = models.ImageField(upload_to=laporan_bullying_foto_upload_path)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
-    # Meta data untuk foto bukti bullying
     class Meta:
         ordering = ['uploaded_at']
         verbose_name = 'Foto Bukti Bullying'
@@ -131,6 +174,12 @@ class FotoBuktiBullying(models.Model):
         return f"Foto untuk {self.laporan.no_laporan}"
 
 class RiwayatStatusBullying(models.Model):
+    """
+    Model to track the timeline and status changes of a bullying report.
+    
+    Acts as an audit log detailing when a report's status was changed, 
+    what the new status was, who made the change, and any notes left by them.
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     laporan = models.ForeignKey(
@@ -144,8 +193,10 @@ class RiwayatStatusBullying(models.Model):
         choices=LaporanBullying.STATUS_CHOICES
     )
 
+    # Optional notes added when changing the status
     catatan = models.TextField(blank=True, null=True)
 
+    # The user (staff or reporter submitting cancellation) who altered the status
     diubah_oleh = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
