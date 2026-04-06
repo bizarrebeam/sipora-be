@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/akun/', include('akun.urls')),
     path('api/logs/', include('log_aktivitas.urls')),
     path('api/laporan-kerusakan/', include('laporan_kerusakan.urls')),
+    path('api/', include('tanggapan.urls')),
     path('api/aspirasi/', include('aspirasi.urls')),
     path('api/laporan-bullying/', include('laporan_bullying.urls')),
     path('api/artikel/', include('artikel.urls')),

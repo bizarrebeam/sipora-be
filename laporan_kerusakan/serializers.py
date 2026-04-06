@@ -1,3 +1,11 @@
+"""
+Serializers module for the laporan_kerusakan application.
+
+Contains validation and data transformation logic for report creation,
+editing, listing, detail retrieval, cancellation, attached photos, and
+status history.
+"""
+
 from rest_framework import serializers
 from .models import LaporanKerusakan, FotoBuktiPendukung, RiwayatStatusLaporan
 from akun.models import Pengguna
@@ -13,6 +21,7 @@ FORBIDDEN_SPECIAL_CHARS_REGEX = re.compile(r'[@!~`#$%^*+]')
 
 
 def normalize_text(value):
+    """Normalize text input by removing zero-width chars and trimming spaces."""
     if value is None:
         return ''
     text = str(value)
@@ -21,6 +30,7 @@ def normalize_text(value):
 
 
 def validate_text_field(field_name, value, min_length=None, max_length=None):
+    """Run common text validations used by title/description/location fields."""
     normalized = normalize_text(value)
 
     if not normalized:
@@ -36,6 +46,7 @@ def validate_text_field(field_name, value, min_length=None, max_length=None):
 
 
 def validate_uploaded_files(file_list):
+    """Validate evidence file count, size, duplication, and MIME type constraints."""
     if len(file_list) > MAX_FILES:
         raise serializers.ValidationError(f'Maksimal {MAX_FILES} foto')
 
@@ -73,6 +84,7 @@ def validate_uploaded_files(file_list):
 
 
 class FotoBuktiSerializer(serializers.ModelSerializer):
+    """Serializer for evidence photo records attached to a report."""
     class Meta:
         model = FotoBuktiPendukung
         fields = ['id', 'foto', 'uploaded_at']
@@ -80,12 +92,14 @@ class FotoBuktiSerializer(serializers.ModelSerializer):
 
 
 class PelaporSerializer(serializers.ModelSerializer):
+    """Serializer for basic reporter identity fields."""
     class Meta:
         model = Pengguna
         fields = ['id', 'username', 'nama_lengkap', 'role']
 
 
 class RiwayatStatusSerializer(serializers.ModelSerializer):
+    """Serializer for status history timeline entries."""
     diubah_oleh_nama = serializers.SerializerMethodField()
 
     class Meta:
@@ -94,14 +108,18 @@ class RiwayatStatusSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'catatan', 'diubah_oleh_nama', 'waktu']
 
     def get_diubah_oleh_nama(self, obj):
+        """Return display name of the user who changed status, or 'Sistem'."""
         if obj.diubah_oleh:
+            if obj.laporan and obj.laporan.anonimitas and obj.diubah_oleh_id == obj.laporan.pelapor_id:
+                return 'Pengguna Anonim'
             return obj.diubah_oleh.nama_lengkap or obj.diubah_oleh.username
         return 'Sistem'
 
 
 class PelaporInfoMixin:
-    """Mixin for pelapor info related methods shared between serializers"""
+    """Shared helper methods for reporter-related display fields."""
     def get_pelapor_info(self, obj):
+        """Build public reporter info, masking identity when report is anonymous."""
         if obj.anonimitas:
             kelas = obj.pelapor.kelas or '-'
             return {
@@ -118,18 +136,21 @@ class PelaporInfoMixin:
         }
 
     def get_nama_lengkap(self, obj):
+        """Return reporter full name with anonymity formatting when needed."""
         if obj.anonimitas:
             kelas = obj.pelapor.kelas or '-'
             return f'Anonim dari Kelas {kelas}'
         return obj.pelapor.nama_lengkap if obj.pelapor else None
 
     def get_akun_terverifikasi(self, obj):
+        """Return verification status unless anonymity hides identity."""
         if obj.anonimitas or not obj.pelapor:
             return None
         return obj.pelapor.is_verified
 
 
 class LaporanKerusakanSerializer(PelaporInfoMixin, serializers.ModelSerializer):
+    """Comprehensive serializer for report detail responses."""
     foto_bukti = FotoBuktiSerializer(many=True, read_only=True)
     pelapor_info = serializers.SerializerMethodField()
     pengirim_username = serializers.SerializerMethodField()
@@ -152,11 +173,13 @@ class LaporanKerusakanSerializer(PelaporInfoMixin, serializers.ModelSerializer):
         ]
     
     def get_pengirim_username(self, obj):
+        """Return sender username unless anonymity is enabled."""
         if obj.anonimitas:
             return None
         return obj.pelapor.username if obj.pelapor else None
     
     def get_foto_pendukung(self, obj):
+        """Return absolute URLs for all attached evidence photos."""
         request = self.context.get('request')
         foto_list = []
         for foto in obj.foto_bukti.all():
@@ -188,7 +211,7 @@ class LaporanKerusakanListSerializer(PelaporInfoMixin, serializers.ModelSerializ
 
 
 class BaseCreateEditLaporanKerusakanSerializer(serializers.ModelSerializer):
-    """Base class for create and edit to avoid duplication"""
+    """Base serializer for create/edit payload validation and normalization."""
     foto_bukti = serializers.ListField(
         child=serializers.ImageField(),
         write_only=True,
@@ -205,9 +228,11 @@ class BaseCreateEditLaporanKerusakanSerializer(serializers.ModelSerializer):
         ]
 
     def validate_foto_bukti(self, value):
+        """Validate uploaded photos using shared file validation rules."""
         return validate_uploaded_files(value)
 
     def validate(self, attrs):
+        """Validate required fields, date constraints, and normalize text values."""
         errors = {}
 
         judul_error = validate_text_field('Judul', attrs.get('judul'), min_length=5, max_length=120)
@@ -260,6 +285,7 @@ class BaseCreateEditLaporanKerusakanSerializer(serializers.ModelSerializer):
 
 
 class CreateLaporanKerusakanSerializer(BaseCreateEditLaporanKerusakanSerializer):
+    """Serializer for report creation, including photo and status-history creation."""
     def create(self, validated_data):
         foto_bukti_list = validated_data.pop('foto_bukti', [])
         pelapor = self.context['request'].user
@@ -286,6 +312,7 @@ class CreateLaporanKerusakanSerializer(BaseCreateEditLaporanKerusakanSerializer)
 
 
 class EditLaporanKerusakanSerializer(BaseCreateEditLaporanKerusakanSerializer):
+    """Serializer for report editing, with optional additional photo uploads."""
     def update(self, instance, validated_data):
         foto_bukti_list = validated_data.pop('foto_bukti', [])
 
@@ -304,9 +331,11 @@ class EditLaporanKerusakanSerializer(BaseCreateEditLaporanKerusakanSerializer):
 
 
 class CancelLaporanKerusakanSerializer(serializers.Serializer):
+    """Serializer for validating cancellation reason payload."""
     alasan = serializers.CharField()
 
     def validate_alasan(self, value):
+        """Ensure cancellation reason is present and meets minimum length."""
         if not value or not str(value).strip():
             raise serializers.ValidationError('Alasan pembatalan wajib diisi')
         if len(value.strip()) < 50:

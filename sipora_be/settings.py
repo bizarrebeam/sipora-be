@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'akun',
     'log_aktivitas',
     'laporan_kerusakan',
+    'tanggapan',
     'aspirasi',
     'laporan_bullying',
     'artikel',

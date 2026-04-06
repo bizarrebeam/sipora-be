@@ -1,3 +1,10 @@
+"""
+Models module for the laporan_kerusakan application.
+
+Defines database schemas for facility-damage reports,
+supporting photos, and status history records.
+"""
+
 from django.db import models
 
 import uuid
@@ -7,12 +14,19 @@ from django.utils import timezone
 
 
 def laporan_foto_upload_path(instance, filename):
+    """
+    Generate a unique upload path for report evidence photos.
+
+    Photos are grouped by report UUID and stored using randomized file names
+    to avoid collisions.
+    """
     ext = filename.split('.')[-1]
     new_filename = f"{uuid.uuid4()}.{ext}"
     return f"laporan_kerusakan/{instance.laporan.id}/{new_filename}"
 
 
 class LaporanKerusakan(models.Model):
+    """Model representing a facility damage report submitted by a user."""
     STATUS_CHOICES = [
         ('menunggu', 'Menunggu Konfirmasi'),
         ('diproses', 'Diproses'),
@@ -55,6 +69,11 @@ class LaporanKerusakan(models.Model):
         return f"{self.no_laporan} - {self.judul}"
     
     def save(self, *args, **kwargs):
+        """
+        Auto-generate a yearly sequential report number.
+
+        Format: LK-<YEAR>-<SEQUENCE>.
+        """
         if not self.no_laporan:
             year = timezone.now().year
             last_laporan = LaporanKerusakan.objects.filter(
@@ -73,6 +92,7 @@ class LaporanKerusakan(models.Model):
 
 
 class RiwayatStatusLaporan(models.Model):
+    """Audit trail model for tracking report status transitions."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     laporan = models.ForeignKey(
         LaporanKerusakan,
@@ -99,6 +119,7 @@ class RiwayatStatusLaporan(models.Model):
 
 
 class FotoBuktiPendukung(models.Model):    
+    """Model for storing photo evidence attached to damage reports."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     laporan = models.ForeignKey(
         LaporanKerusakan,

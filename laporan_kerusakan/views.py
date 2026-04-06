@@ -1,3 +1,10 @@
+"""
+Views module for the laporan_kerusakan application.
+
+Provides API endpoints for creating, listing, viewing detail,
+editing, and canceling facility-damage reports.
+"""
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -18,9 +25,11 @@ from log_aktivitas.utils import catat_log
 
 
 class CreateLaporanKerusakanView(APIView):
+    """API view for creating a new facility damage report."""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        """Handle POST request to create a report with optional photo evidence."""
         # allow pelapor from siswa or guru
         if request.user.role not in ['siswa', 'guru']:
             return Response(
@@ -84,9 +93,11 @@ class CreateLaporanKerusakanView(APIView):
 
 
 class LaporanKerusakanListView(APIView):
+    """API view for listing reports with filtering, search, sorting, and pagination."""
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        """Return report list scope based on user role and query parameters."""
         user = request.user
 
         if user.role not in ['siswa', 'guru', 'kemahasiswaan']:
@@ -217,9 +228,11 @@ class LaporanKerusakanListView(APIView):
 
 
 class LaporanKerusakanDetailView(APIView):
+    """API view for retrieving full detail of a single report."""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, id):
+        """Return report detail if requester has access rights."""
         try:
             laporan = LaporanKerusakan.objects.get(id=id)
         except LaporanKerusakan.DoesNotExist:
@@ -259,9 +272,11 @@ class LaporanKerusakanDetailView(APIView):
         )
 
 class EditLaporanKerusakanView(APIView):
+    """API view for editing reports that are still in waiting status."""
     permission_classes = [IsAuthenticated]
     
     def put(self, request, id):
+        """Handle PUT request to update a report owned by the authenticated user."""
         user = request.user
         # only siswa and guru can edit laporan
         if user.role not in ['siswa', 'guru']:
@@ -360,6 +375,7 @@ class EditLaporanKerusakanView(APIView):
         )
 
     def get(self, request, id):
+        """Return report data for edit form prefill with access validation."""
         user = request.user
 
         if user.role not in ['siswa', 'guru']:
@@ -420,9 +436,11 @@ class EditLaporanKerusakanView(APIView):
         )
 
 class CancelLaporanKerusakanView(APIView):
+    """API view for canceling reports with mandatory reason validation."""
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, id):
+        """Handle PATCH request to cancel a report in waiting status."""
         user = request.user
 
         # only siswa and guru can cancel
