@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'anymail',
     'core',
     'akun',
     'log_aktivitas',
@@ -202,35 +203,23 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# ─── Email Configuration ──────────────────────────────────────────────────────
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
+# ─── Email Configuration (Resend via django-anymail) ──────────────────────────
+# Resend uses HTTPS API (port 443) instead of SMTP (port 587/465).
+# Railway blocks outbound SMTP, but HTTPS is unrestricted.
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'SIPORA SMP Desa Putera <{EMAIL_HOST_USER}>')
 
 if EMAIL_USE_CONSOLE_BACKEND:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
+    ANYMAIL = {
+        "RESEND_API_KEY": os.getenv("RESEND_API_KEY", ""),
+    }
 
-# Cryptographic TTL length for SMTP password resets.
+DEFAULT_FROM_EMAIL = os.getenv(
+    'DEFAULT_FROM_EMAIL',
+    'SIPORA SMP Desa Putera <[REDACTED EMAIL]>'
+)
+
+# Cryptographic TTL length for password reset tokens (1 hour).
 PASSWORD_RESET_TIMEOUT = 3600
-
-# ─── Railway / Containerized IPv4 Resolution Fix ──────────────────────────────
-if PRODUCTION:
-    import socket
-    import smtplib
-    
-    # Store reference to the original C-level socket resolution method.
-    orig_getaddrinfo = socket.getaddrinfo
-
-    def forced_ipv4_getaddrinfo(*args, **kwargs):
-        if len(args) > 0 and 'googlemail' in str(args[0]) or 'gmail' in str(args[0]):
-            return orig_getaddrinfo(args[0], args[1], socket.AF_INET, socket.SOCK_STREAM)
-        return orig_getaddrinfo(*args, **kwargs)
-
-    socket.getaddrinfo = forced_ipv4_getaddrinfo
