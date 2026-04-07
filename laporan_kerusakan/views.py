@@ -55,7 +55,7 @@ def build_status_change_catatan(status_current, status_new, reason='', note=''):
         return 'Pelapor mengonfirmasi laporan selesai.'
 
     if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'diproses':
-        return 'Pelapor menyatakan laporan belum selesai dan dikembalikan ke Diproses.'
+        return 'Pelapor menyatakan laporan belum selesai dan dikembalikan ke Diproses'
 
     if note:
         return f"Status diperbarui ke {STATUS_LABELS.get(status_new, status_new)}. Catatan: {note}"
