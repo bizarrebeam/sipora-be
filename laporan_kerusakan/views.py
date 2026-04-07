@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.shortcuts import get_object_or_404
 from django.db import models
 from django.utils.dateparse import parse_date
 
@@ -19,9 +18,49 @@ from .serializers import (
     LaporanKerusakanListSerializer,
     CreateLaporanKerusakanSerializer,
     EditLaporanKerusakanSerializer,
-    CancelLaporanKerusakanSerializer
+    CancelLaporanKerusakanSerializer,
+    UpdateStatusLaporanKerusakanSerializer
 )
 from log_aktivitas.utils import catat_log
+
+
+STATUS_LABELS = {
+    'menunggu': 'Menunggu Konfirmasi',
+    'diproses': 'Diproses',
+    'menunggu_konfirmasi_selesai': 'Menunggu Konfirmasi Selesai',
+    'selesai': 'Selesai',
+    'ditolak': 'Ditolak',
+    'dibatalkan': 'Dibatalkan',
+}
+
+
+def build_status_change_catatan(status_current, status_new, reason='', note=''):
+    """Return a consistent history note for status transitions."""
+
+    reason = (reason or '').strip()
+    note = (note or '').strip()
+
+    if status_new == 'ditolak' and reason:
+        return f"Status diperbarui ke {STATUS_LABELS['ditolak']}. Alasan: {reason}"
+
+    if status_new == 'menunggu_konfirmasi_selesai':
+        return (
+            f"Status diperbarui ke {STATUS_LABELS['menunggu_konfirmasi_selesai']}. "
+            f"Catatan tindak lanjut: {note}"
+        )
+
+    if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'selesai':
+        if note:
+            return f"Pelapor mengonfirmasi laporan selesai. Catatan: {note}"
+        return 'Pelapor mengonfirmasi laporan selesai.'
+
+    if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'diproses':
+        return 'Pelapor menyatakan laporan belum selesai dan dikembalikan ke Diproses.'
+
+    if note:
+        return f"Status diperbarui ke {STATUS_LABELS.get(status_new, status_new)}. Catatan: {note}"
+
+    return None
 
 
 class CreateLaporanKerusakanView(APIView):
@@ -381,7 +420,6 @@ class EditLaporanKerusakanView(APIView):
         if user.role not in ['siswa', 'guru']:
             return Response(
                 {
-                    'status': 'error',
                     'message': 'Hanya pengirim yang dapat mengakses dan mengubah laporan',
                     'data': None
                 },
@@ -551,6 +589,135 @@ class CancelLaporanKerusakanView(APIView):
             {
                 'status': 'success',
                 'message': 'Laporan berhasil dibatalkan',
+                'data': response_serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class UpdateStatusLaporanKerusakanView(APIView):
+    """API view for updating report status by authorized admin/staff users."""
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, id):
+        """Handle PUT request to update report status."""
+        user = request.user
+
+        try:
+            laporan = LaporanKerusakan.objects.get(id=id)
+        except LaporanKerusakan.DoesNotExist:
+            return Response(
+                {
+                    'status': 'error',
+                    'message': 'Laporan tidak ditemukan',
+                    'data': None
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # cannot update status if already cancelled
+        if laporan.status in ['dibatalkan']:
+            return Response(
+                {
+                    'status': 'error',
+                    'message': 'Laporan yang dibatalkan tidak dapat diubah statusnya',
+                    'data': None
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = UpdateStatusLaporanKerusakanSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'status': 'error',
+                    'message': 'Validasi gagal',
+                    'data': serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        status_new = serializer.validated_data['status']
+        reason = serializer.validated_data.get('reason', '').strip()
+        note = serializer.validated_data.get('note', '').strip()
+
+        is_admin = user.role == 'kemahasiswaan'
+        is_pelapor = laporan.pelapor == user
+
+        # Validate status transitions
+        status_current = laporan.status
+        valid_transitions = {
+            'menunggu': ['diproses', 'ditolak'],
+            'diproses': ['menunggu_konfirmasi_selesai', 'ditolak'],
+            'menunggu_konfirmasi_selesai': ['selesai', 'diproses'],
+            'selesai': [],
+            'ditolak': [],
+            'dibatalkan': []
+        }
+
+        if status_new not in valid_transitions.get(status_current, []):
+            return Response(
+                {
+                    'status': 'error',
+                    'message': f'Tidak dapat mengubah status dari {status_current} ke {status_new}',
+                    'data': None
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if status_current == 'menunggu_konfirmasi_selesai':
+            if not is_pelapor:
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'Hanya pelapor yang dapat mengonfirmasi penyelesaian laporan',
+                        'data': None
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            if not is_admin:
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'Hanya Kemahasiswaan yang dapat mengubah status laporan',
+                        'data': None
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Update status
+        laporan.status = status_new
+        laporan.save()
+
+        # Create history entry
+        catatan = build_status_change_catatan(status_current, status_new, reason, note)
+
+        RiwayatStatusLaporan.objects.create(
+            laporan=laporan,
+            status=status_new,
+            catatan=catatan,
+            diubah_oleh=user
+        )
+
+        ip = request.META.get('REMOTE_ADDR')
+        catat_log(
+            user,
+            'UPDATE_STATUS_LAPORAN',
+            f"Mengubah status laporan kerusakan {laporan.no_laporan} menjadi {status_new}",
+            'kerusakan',
+            ip
+        )
+
+        response_serializer = LaporanKerusakanSerializer(
+            laporan,
+            context={'request': request}
+        )
+
+        return Response(
+            {
+                'status': 'success',
+                'message': 'Status laporan berhasil diperbarui',
                 'data': response_serializer.data
             },
             status=status.HTTP_200_OK

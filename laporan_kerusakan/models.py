@@ -5,8 +5,6 @@ Defines database schemas for facility-damage reports,
 supporting photos, and status history records.
 """
 
-from django.db import models
-
 import uuid
 from django.db import models
 from django.conf import settings
@@ -30,6 +28,7 @@ class LaporanKerusakan(models.Model):
     STATUS_CHOICES = [
         ('menunggu', 'Menunggu Konfirmasi'),
         ('diproses', 'Diproses'),
+        ('menunggu_konfirmasi_selesai', 'Menunggu Konfirmasi Selesai'),
         ('selesai', 'Selesai'),
         ('ditolak', 'Ditolak'),
         ('dibatalkan', 'Dibatalkan'),
@@ -41,7 +40,7 @@ class LaporanKerusakan(models.Model):
     deskripsi = models.TextField()
     lokasi = models.CharField(max_length=255, db_index=True)
     tanggal_kejadian = models.DateField(db_index=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
+    status = models.CharField(max_length=40, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)    
     pelapor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -99,7 +98,7 @@ class RiwayatStatusLaporan(models.Model):
         on_delete=models.CASCADE,
         related_name='riwayat_status'
     )
-    status = models.CharField(max_length=20, choices=LaporanKerusakan.STATUS_CHOICES)
+    status = models.CharField(max_length=40, choices=LaporanKerusakan.STATUS_CHOICES)
     catatan = models.TextField(blank=True, null=True)
     diubah_oleh = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -11,6 +11,10 @@ from datetime import datetime, date
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 import re
 
+# Validation constants
+MIN_REJECTION_REASON_LENGTH = 20
+MIN_BULLYING_NOTE_LENGTH = 10
+
 def sanitize_text(value):
     """
     Sanitize user input to prevent XSS and other injection attacks by 
@@ -50,6 +54,40 @@ class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
             if request:
                 url = request.build_absolute_uri(url)
         return url
+
+class UpdateStatusLaporanBullyingSerializer(serializers.Serializer):
+    """Serializer for validating status update request payload."""
+    status = serializers.ChoiceField(
+        choices=['menunggu', 'diproses', 'menunggu_konfirmasi_selesai', 'selesai', 'ditolak'],
+        required=True
+    )
+    reason = serializers.CharField(required=False, allow_blank=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        """Validate status transitions and required fields."""
+        status_new = data.get('status')
+        reason = data.get('reason', '').strip() if data.get('reason') else ''
+        note = data.get('note', '').strip() if data.get('note') else ''
+
+        # Validation for ditolak status - reason is required
+        if status_new == 'ditolak':
+            if not reason:
+                raise serializers.ValidationError(
+                    'Alasan penolakan wajib diisi ketika status ditolak'
+                )
+            if len(reason) < MIN_REJECTION_REASON_LENGTH:
+                raise serializers.ValidationError(
+                    f'Alasan penolakan minimal {MIN_REJECTION_REASON_LENGTH} karakter'
+                )
+
+        if status_new == 'menunggu_konfirmasi_selesai' and not note:
+            raise serializers.ValidationError(
+                'Catatan tindak lanjut wajib diisi sebelum meminta konfirmasi pelapor'
+            )
+
+        return data
+
 
 class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
     """

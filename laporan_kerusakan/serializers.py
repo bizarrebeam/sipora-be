@@ -6,17 +6,21 @@ editing, listing, detail retrieval, cancellation, attached photos, and
 status history.
 """
 
-from rest_framework import serializers
-from .models import LaporanKerusakan, FotoBuktiPendukung, RiwayatStatusLaporan
-from akun.models import Pengguna
-from datetime import datetime, date as _date
 import re
+from datetime import datetime, date as _date
+
+from rest_framework import serializers
+
+from akun.models import Pengguna
+from .models import LaporanKerusakan, FotoBuktiPendukung, RiwayatStatusLaporan
 
 
 MAX_FILES = 5
 MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 MAX_TOTAL_SIZE_BYTES = MAX_FILES * MAX_FILE_SIZE_BYTES
 MIN_REPORT_DATE = _date(2000, 1, 1)
+MIN_CANCEL_REASON_LENGTH = 50
+MIN_REJECTION_REASON_LENGTH = 20
 FORBIDDEN_SPECIAL_CHARS_REGEX = re.compile(r'[@!~`#$%^*+]')
 
 
@@ -338,6 +342,41 @@ class CancelLaporanKerusakanSerializer(serializers.Serializer):
         """Ensure cancellation reason is present and meets minimum length."""
         if not value or not str(value).strip():
             raise serializers.ValidationError('Alasan pembatalan wajib diisi')
-        if len(value.strip()) < 50:
-            raise serializers.ValidationError('Alasan pembatalan wajib minimal 50 karakter')
+        if len(value.strip()) < MIN_CANCEL_REASON_LENGTH:
+            raise serializers.ValidationError(
+                f'Alasan pembatalan wajib minimal {MIN_CANCEL_REASON_LENGTH} karakter'
+            )
         return value.strip()
+
+class UpdateStatusLaporanKerusakanSerializer(serializers.Serializer):
+    """Serializer for validating status update request payload."""
+    status = serializers.ChoiceField(
+        choices=['menunggu', 'diproses', 'menunggu_konfirmasi_selesai', 'selesai', 'ditolak'],
+        required=True
+    )
+    reason = serializers.CharField(required=False, allow_blank=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        """Validate status transitions and required fields."""
+        status_new = data.get('status')
+        reason = data.get('reason', '').strip() if data.get('reason') else ''
+        note = data.get('note', '').strip() if data.get('note') else ''
+
+        # Validation for ditolak status - reason is required
+        if status_new == 'ditolak':
+            if not reason:
+                raise serializers.ValidationError(
+                    'Alasan penolakan wajib diisi ketika status ditolak'
+                )
+            if len(reason) < MIN_REJECTION_REASON_LENGTH:
+                raise serializers.ValidationError(
+                    f'Alasan penolakan minimal {MIN_REJECTION_REASON_LENGTH} karakter'
+                )
+
+        if status_new == 'menunggu_konfirmasi_selesai' and not note:
+            raise serializers.ValidationError(
+                'Catatan tindak lanjut wajib diisi sebelum meminta konfirmasi pelapor'
+            )
+
+        return data
