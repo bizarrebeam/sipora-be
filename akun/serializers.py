@@ -563,30 +563,103 @@ class ForgotPasswordSerializer(serializers.Serializer):
         frontend_url = settings.FRONTEND_URL.rstrip('/')
         reset_link = f"{frontend_url}/reset-password/{uid}/{token}"
 
+        # Plaintext fallback for email clients that don't support HTML.
+        plain_message = (
+            f'Halo {user.nama_lengkap},\n\n'
+            f'Kamu meminta reset password untuk akun SIPORA-mu.\n'
+            f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
+            f'{reset_link}\n\n'
+            f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
+            f'Salam,\nTim SIPORA SMP Desa Putera'
+        )
+
+        # Branded HTML email template with inline CSS for maximum client compatibility.
+        html_message = f'''<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        
+        <!-- Header -->
+        <tr><td style="background:linear-gradient(135deg,#2A2C87 0%,#4F46E5 100%);padding:32px 24px;text-align:center;">
+          <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:1px;">SIPORA</h1>
+          <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.8);letter-spacing:0.5px;">Sistem Informasi Pelaporan SMP Desa Putera</p>
+        </td></tr>
+        
+        <!-- Body -->
+        <tr><td style="padding:32px 24px;">
+          <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1f2937;">Reset Password</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
+            Halo <strong style="color:#1f2937;">{user.nama_lengkap}</strong>,
+          </p>
+          <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
+            Kami menerima permintaan untuk mereset password akun SIPORA-mu. Klik tombol di bawah untuk membuat password baru:
+          </p>
+          
+          <!-- CTA Button -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center" style="padding:4px 0 24px;">
+              <a href="{reset_link}" target="_blank" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#2A2C87 0%,#4F46E5 100%);color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;border-radius:10px;letter-spacing:0.3px;">
+                Reset Password Sekarang
+              </a>
+            </td></tr>
+          </table>
+          
+          <!-- Expiry Notice -->
+          <div style="padding:12px 16px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;margin-bottom:20px;">
+            <p style="margin:0;font-size:12px;color:#92400e;line-height:1.5;">
+              ⏰ Link ini berlaku selama <strong>1 jam</strong>. Setelah itu, kamu perlu meminta link baru.
+            </p>
+          </div>
+          
+          <!-- Fallback Link -->
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">Tombol tidak berfungsi? Salin link ini ke browser:</p>
+          <p style="margin:0;font-size:11px;color:#6366f1;word-break:break-all;line-height:1.5;">{reset_link}</p>
+        </td></tr>
+        
+        <!-- Security Footer -->
+        <tr><td style="padding:0 24px 24px;">
+          <div style="border-top:1px solid #e5e7eb;padding-top:16px;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.5;">
+              Jika kamu tidak meminta reset password, abaikan email ini. Akunmu tetap aman.
+            </p>
+          </div>
+        </td></tr>
+        
+        <!-- Brand Footer -->
+        <tr><td style="background:#f9fafb;padding:16px 24px;text-align:center;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;">
+            &copy; 2026 SIPORA &mdash; SMP Desa Putera
+          </p>
+        </td></tr>
+        
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>'''
+
         def send_email_thread():
             try:
                 send_mail(
                     subject='[SIPORA] Reset Password Akunmu',
-                    message=(
-                        f'Halo {user.nama_lengkap},\n\n'
-                        f'Kamu meminta reset password untuk akun SIPORA-mu.\n'
-                        f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
-                        f'{reset_link}\n\n'
-                        f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
-                        f'Salam,\nTim SIPORA SMP Desa Putera'
-                    ),
+                    message=plain_message,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
+                    html_message=html_message,
                     fail_silently=False,
                 )
             except Exception as e:
                 import traceback
-                print(f"SMTP Background Task Error: {str(e)}")
+                print(f"Email Dispatch Error: {str(e)}")
                 traceback.print_exc()
 
         threading.Thread(target=send_email_thread).start()
 
         return mask_email(user.email)
+
 
 
 class ResetPasswordSerializer(serializers.Serializer):

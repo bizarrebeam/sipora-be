@@ -96,6 +96,7 @@ class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
     Respects anonymity settings when displaying the user's name.
     """
     user = serializers.SerializerMethodField()
+    alasan_pembatalan = serializers.SerializerMethodField()
     
     class Meta:
         model = RiwayatStatusBullying
@@ -104,8 +105,18 @@ class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
             'catatan',
             'diubah_oleh',
             'created_at',
-            'user'
+            'user',
+            'alasan_pembatalan'
         ]
+
+    def get_alasan_pembatalan(self, obj):
+        """
+        Retrieves the cancellation reason from the related LaporanBullying
+        if the status is 'dibatalkan'.
+        """
+        if obj.status == 'dibatalkan':
+            return obj.laporan.alasan_pembatalan
+        return None
 
     def get_user(self, obj):
         """
@@ -285,6 +296,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
             'tanggal_kejadian',
             'waktu_kejadian',
             'jenis_bullying',
+            'anonimitas',
             'status',
             'foto_bukti',
             'tanggal_laporan',

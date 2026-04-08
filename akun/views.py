@@ -281,19 +281,43 @@ class UbahPasswordView(APIView):
 class ForgotPasswordView(APIView):
     """
     Initiates the password reset workflow by sending an email with a secure token.
-    Provides a masked email address response for immediate UI feedback.
+    Enforces per-NIS rate limiting (3 requests/hour) to prevent abuse and protect email quotas.
     """
     permission_classes = [AllowAny]
 
+    RATE_LIMIT_MAX = 3          # Maximum requests per window
+    RATE_LIMIT_WINDOW = 3600    # Window duration in seconds (1 hour)
+
     def post(self, request):
+        nis = request.data.get('nis', '').strip()
+
+        # Per-NIS rate limiting via Django's default cache
+        if nis:
+            from django.core.cache import cache
+            cache_key = f'forgot_pw_rate:{nis}'
+            attempts = cache.get(cache_key, 0)
+
+            if attempts >= self.RATE_LIMIT_MAX:
+                return Response({
+                    'nis': ['Terlalu banyak percobaan. Silakan tunggu 1 jam sebelum mencoba lagi.']
+                }, status=429)
+
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
+            # Increment rate-limit counter after successful validation
+            if nis:
+                from django.core.cache import cache
+                cache_key = f'forgot_pw_rate:{nis}'
+                attempts = cache.get(cache_key, 0)
+                cache.set(cache_key, attempts + 1, self.RATE_LIMIT_WINDOW)
+
             masked_email = serializer.save()
             return Response({
                 "message": f"Email reset password sudah dikirimkan ke {masked_email}",
                 "masked_email": masked_email,
             })
         return Response(serializer.errors, status=400)
+
 
 
 class ResetPasswordView(APIView):
