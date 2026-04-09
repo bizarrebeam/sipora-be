@@ -40,7 +40,9 @@ class LaporanBullying(models.Model):
     STATUS_CHOICES = [
         ('menunggu', 'Menunggu Konfirmasi'),
         ('diproses', 'Diproses'),
+        ('menunggu_konfirmasi_selesai', 'Menunggu Konfirmasi Selesai'),
         ('selesai', 'Selesai'),
+        ('ditolak', 'Ditolak'),
         ('dibatalkan', 'Dibatalkan'),
     ]
 
@@ -64,7 +66,7 @@ class LaporanBullying(models.Model):
     tanggal_kejadian = models.DateField(db_index=True)
     waktu_kejadian = models.TimeField(null=True, blank=True, db_index=True)
     jenis_bullying = models.CharField(max_length=20, choices=JENIS_BULLYING_CHOICES, db_index=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
+    status = models.CharField(max_length=27, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)
 
     # Relationship to the user who created the report
@@ -189,7 +191,7 @@ class RiwayatStatusBullying(models.Model):
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=27,
         choices=LaporanBullying.STATUS_CHOICES
     )
 

@@ -11,6 +11,10 @@ from datetime import datetime, date
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 import re
 
+# Validation constants
+MIN_REJECTION_REASON_LENGTH = 20
+MIN_BULLYING_NOTE_LENGTH = 10
+
 def sanitize_text(value):
     """
     Sanitize user input to prevent XSS and other injection attacks by 
@@ -51,6 +55,40 @@ class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(url)
         return url
 
+class UpdateStatusLaporanBullyingSerializer(serializers.Serializer):
+    """Serializer for validating status update request payload."""
+    status = serializers.ChoiceField(
+        choices=['menunggu', 'diproses', 'menunggu_konfirmasi_selesai', 'selesai', 'ditolak'],
+        required=True
+    )
+    reason = serializers.CharField(required=False, allow_blank=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        """Validate status transitions and required fields."""
+        status_new = data.get('status')
+        reason = data.get('reason', '').strip() if data.get('reason') else ''
+        note = data.get('note', '').strip() if data.get('note') else ''
+
+        # Validation for ditolak status - reason is required
+        if status_new == 'ditolak':
+            if not reason:
+                raise serializers.ValidationError(
+                    'Alasan penolakan wajib diisi ketika status ditolak'
+                )
+            if len(reason) < MIN_REJECTION_REASON_LENGTH:
+                raise serializers.ValidationError(
+                    f'Alasan penolakan minimal {MIN_REJECTION_REASON_LENGTH} karakter'
+                )
+
+        if status_new == 'menunggu_konfirmasi_selesai' and not note:
+            raise serializers.ValidationError(
+                'Catatan tindak lanjut wajib diisi sebelum meminta konfirmasi pelapor'
+            )
+
+        return data
+
+
 class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
     """
     Serializer for the history of bullying report statuses (Riwayat Status).
@@ -90,18 +128,20 @@ class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
             obj (RiwayatStatusBullying): The status history instance.
             
         Returns:
-            dict or None: A dictionary containing the user's ID and Name, 
+            dict or None: A dictionary containing the user's info (nama_lengkap, role), 
                           or None if no user is specified.
         """
         if obj.diubah_oleh:
             if obj.laporan.anonimitas and obj.diubah_oleh == obj.laporan.pelapor:
                 return {
                     'id': obj.diubah_oleh.id,
-                    'nama': 'Pengguna Anonim'
+                    'nama_lengkap': 'Pengguna Anonim',
+                    'role': None
                 }
             return {
                 'id': obj.diubah_oleh.id,
-                'nama': getattr(obj.diubah_oleh, 'nama_lengkap', 'Admin')
+                'nama_lengkap': getattr(obj.diubah_oleh, 'nama_lengkap', 'Admin'),
+                'role': getattr(obj.diubah_oleh, 'role', None)
             }
         return None
 

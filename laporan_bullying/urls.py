@@ -7,4 +7,5 @@ urlpatterns = [
     path('<uuid:id>/', DetailLaporanBullyingView.as_view()),
     path('<uuid:id>/edit/', EditLaporanBullyingView.as_view()),
     path('<uuid:id>/cancel/', CancelLaporanBullyingView.as_view()),
+    path('<uuid:id>/status/', UpdateStatusLaporanBullyingView.as_view()),
 ]

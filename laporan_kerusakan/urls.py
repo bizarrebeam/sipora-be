@@ -5,6 +5,7 @@ from .views import (
     LaporanKerusakanDetailView, 
     EditLaporanKerusakanView, 
     CancelLaporanKerusakanView,
+    UpdateStatusLaporanKerusakanView,
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path('<uuid:id>/', LaporanKerusakanDetailView.as_view(), name='detail-laporan'),
     path('<uuid:id>/edit/', EditLaporanKerusakanView.as_view(), name='edit-laporan'),
     path('<uuid:id>/cancel/', CancelLaporanKerusakanView.as_view(), name='cancel-laporan'),
+    path('<uuid:id>/status/', UpdateStatusLaporanKerusakanView.as_view(), name='update-status-laporan'),
 ]

@@ -1,4 +1,9 @@
-from django.db import models
+"""
+Models module for the laporan_kerusakan application.
+
+Defines database schemas for facility-damage reports,
+supporting photos, and status history records.
+"""
 
 import uuid
 from django.db import models
@@ -7,15 +12,23 @@ from django.utils import timezone
 
 
 def laporan_foto_upload_path(instance, filename):
+    """
+    Generate a unique upload path for report evidence photos.
+
+    Photos are grouped by report UUID and stored using randomized file names
+    to avoid collisions.
+    """
     ext = filename.split('.')[-1]
     new_filename = f"{uuid.uuid4()}.{ext}"
     return f"laporan_kerusakan/{instance.laporan.id}/{new_filename}"
 
 
 class LaporanKerusakan(models.Model):
+    """Model representing a facility damage report submitted by a user."""
     STATUS_CHOICES = [
         ('menunggu', 'Menunggu Konfirmasi'),
         ('diproses', 'Diproses'),
+        ('menunggu_konfirmasi_selesai', 'Menunggu Konfirmasi Selesai'),
         ('selesai', 'Selesai'),
         ('ditolak', 'Ditolak'),
         ('dibatalkan', 'Dibatalkan'),
@@ -27,7 +40,7 @@ class LaporanKerusakan(models.Model):
     deskripsi = models.TextField()
     lokasi = models.CharField(max_length=255, db_index=True)
     tanggal_kejadian = models.DateField(db_index=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='menunggu', db_index=True)
+    status = models.CharField(max_length=40, choices=STATUS_CHOICES, default='menunggu', db_index=True)
     catatan_admin = models.TextField(blank=True, null=True)    
     pelapor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -55,6 +68,11 @@ class LaporanKerusakan(models.Model):
         return f"{self.no_laporan} - {self.judul}"
     
     def save(self, *args, **kwargs):
+        """
+        Auto-generate a yearly sequential report number.
+
+        Format: LK-<YEAR>-<SEQUENCE>.
+        """
         if not self.no_laporan:
             year = timezone.now().year
             last_laporan = LaporanKerusakan.objects.filter(
@@ -73,13 +91,14 @@ class LaporanKerusakan(models.Model):
 
 
 class RiwayatStatusLaporan(models.Model):
+    """Audit trail model for tracking report status transitions."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     laporan = models.ForeignKey(
         LaporanKerusakan,
         on_delete=models.CASCADE,
         related_name='riwayat_status'
     )
-    status = models.CharField(max_length=20, choices=LaporanKerusakan.STATUS_CHOICES)
+    status = models.CharField(max_length=40, choices=LaporanKerusakan.STATUS_CHOICES)
     catatan = models.TextField(blank=True, null=True)
     diubah_oleh = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -99,6 +118,7 @@ class RiwayatStatusLaporan(models.Model):
 
 
 class FotoBuktiPendukung(models.Model):    
+    """Model for storing photo evidence attached to damage reports."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     laporan = models.ForeignKey(
         LaporanKerusakan,
