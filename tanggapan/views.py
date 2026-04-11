@@ -103,8 +103,9 @@ class ListCreateTanggapanLaporanKerusakanView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Status check: cannot respond if report is closed (selesai)
-        if laporan.status == 'selesai':
+        # Status check: cannot respond if report is closed (selesai, ditolak, dibatalkan)
+        closed_statuses = ['selesai', 'ditolak', 'dibatalkan']
+        if laporan.status in closed_statuses:
             return Response(
                 {
                     'status': 'error',
@@ -243,8 +244,9 @@ class ListCreateTanggapanLaporanBullyingView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Status check: cannot respond if report is closed (selesai)
-        if laporan.status == 'selesai':
+        # Status check: cannot respond if report is closed (selesai, ditolak, dibatalkan)
+        closed_statuses = ['selesai', 'ditolak', 'dibatalkan']
+        if laporan.status in closed_statuses:
             return Response(
                 {
                     'status': 'error',
