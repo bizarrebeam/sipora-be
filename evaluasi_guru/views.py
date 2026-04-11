@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import Evaluasi, NilaiEvaluasi, Indikator, get_tahun_ajaran, get_semester
+from .serializers import IndikatorSerializer, GuruSimpleSerializer, sanitize_text
 
 User = get_user_model()
 
@@ -93,9 +94,9 @@ class EvaluasiCreateView(APIView):
 
         # Validasi komentar
         komentar = request.data.get("komentar", "")
-        if komentar:
-            komentar_str = str(komentar).strip()
-            if len(komentar_str) > 0 and len(komentar_str) < 20:
+        if len(str(komentar)) > 0:
+            komentar_str = sanitize_text(str(komentar))
+            if len(komentar_str) < 20:
                 return Response(
                     {"detail": "Komentar terlalu singkat."},
                     status=status.HTTP_400_BAD_REQUEST
@@ -141,3 +142,51 @@ class EvaluasiCreateView(APIView):
                 {"detail": str(e)}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class IndikatorListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        indikators = Indikator.objects.all().order_by('urutan')
+        serializer = IndikatorSerializer(indikators, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class GuruListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        gurus = User.objects.filter(role='guru', is_verified=True).order_by('nama_lengkap')
+
+        if user.role == 'siswa' and user.kelas:
+            from akun.models import MataPelajaranGuruSemester
+            from .models import get_tahun_ajaran, get_semester
+            from django.utils import timezone
+
+            now = timezone.now()
+            ta = get_tahun_ajaran(now)
+            sem = get_semester(now)
+
+            # Retrieve all teaching assignments for the current semester
+            riwayat = MataPelajaranGuruSemester.objects.filter(
+                tahun_ajaran=ta,
+                semester=sem
+            )
+            
+            # Filter teaching assignments manually in Python to ensure compatibility across databases
+            valid_guru_ids = []
+            import json
+            for r in riwayat:
+                kd = r.kelas_diajar
+                if isinstance(kd, str):
+                    try:
+                        kd = json.loads(kd)
+                    except Exception:
+                        kd = []
+                if isinstance(kd, list) and user.kelas in kd:
+                    valid_guru_ids.append(r.guru_id)
+            
+            gurus = gurus.filter(id__in=valid_guru_ids)
+
+        serializer = GuruSimpleSerializer(gurus, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
