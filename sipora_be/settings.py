@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'laporan_bullying',
     'artikel',
     'evaluasi_guru',
+    'konsultasi',
 ]
 
 AUTH_USER_MODEL = 'akun.Pengguna'

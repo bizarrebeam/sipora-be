@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/laporan-bullying/', include('laporan_bullying.urls')),
     path('api/artikel/', include('artikel.urls')),
     path('api/evaluasi/', include('evaluasi_guru.urls')),
+    path('api/konsultasi/', include('konsultasi.urls')),
 ]
 
 if settings.DEBUG:
