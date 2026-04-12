@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-    'anymail',
     'core',
     'akun',
     'log_aktivitas',
@@ -202,23 +201,21 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# ─── Email Configuration (Resend via django-anymail) ──────────────────────────
-# Resend uses HTTPS API (port 443) instead of SMTP (port 587/465).
-# Railway blocks outbound SMTP, but HTTPS is unrestricted.
+# ─── Email Configuration (Gmail SMTP) ───────────────────────────────────────────
+# Since Railway is on a paid plan, port 587 is unblocked. We can use standard Gmail SMTP.
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
 
 if EMAIL_USE_CONSOLE_BACKEND:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 else:
-    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
-    ANYMAIL = {
-        "RESEND_API_KEY": os.getenv("RESEND_API_KEY", ""),
-    }
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '[REDACTED]')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
-DEFAULT_FROM_EMAIL = os.getenv(
-    'DEFAULT_FROM_EMAIL',
-    'SIPORA SMP Desa Putera <[REDACTED EMAIL]>'
-)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Cryptographic TTL length for password reset tokens (1 hour).
 PASSWORD_RESET_TIMEOUT = 3600
