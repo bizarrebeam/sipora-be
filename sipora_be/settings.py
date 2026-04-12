@@ -205,6 +205,9 @@ SIMPLE_JWT = {
 # ─── Email Configuration (SMTP Proxy) ───────────────────────────────────────────
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
 
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '[REDACTED]')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+
 if EMAIL_USE_CONSOLE_BACKEND:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 else:
@@ -212,10 +215,9 @@ else:
     EMAIL_HOST = 'smtp.gmail.com'
     EMAIL_PORT = 587
     EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '[REDACTED]')
-    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
 
 # Cryptographic TTL length for password reset tokens (1 hour).
 PASSWORD_RESET_TIMEOUT = 3600
