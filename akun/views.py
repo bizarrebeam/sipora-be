@@ -492,7 +492,7 @@ class AdminVerifikasiSiswaView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @role_required('kemahasiswaan')
+    @role_required('kemahasiswaan', 'guru_bk')
     def post(self, request, user_id):
         try:
             siswa = Pengguna.objects.get(pk=user_id, role='siswa')

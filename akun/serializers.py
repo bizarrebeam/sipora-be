@@ -352,6 +352,7 @@ class LoginSerializer(serializers.Serializer):
             return {
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'id': str(user.id),
                 'username': user.username,
                 'role': user.role,
                 'nama_lengkap': user.nama_lengkap,
