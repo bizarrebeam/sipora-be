@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import Evaluasi, NilaiEvaluasi, Indikator, get_tahun_ajaran, get_semester
 from .serializers import IndikatorSerializer, GuruSimpleSerializer, sanitize_text
+from log_aktivitas.utils import catat_log
 
 User = get_user_model()
 
@@ -132,6 +133,16 @@ class EvaluasiCreateView(APIView):
                     indikator=indikator,
                     nilai=r_data["nilai"]
                 )
+
+            # Log aktivitas
+            ip = request.META.get('REMOTE_ADDR')
+            catat_log(
+                request.user,
+                'BUAT_EVALUASI',
+                f"Memberikan evaluasi untuk guru: {guru.nama_lengkap}",
+                'evaluasi_guru',
+                ip
+            )
 
             return Response(
                 {"detail": "Evaluasi berhasil disimpan."}, 
