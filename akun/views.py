@@ -97,6 +97,10 @@ class LoginView(APIView):
             access_token = data.pop('access')
             refresh_token = data.pop('refresh')
             
+            # Send tokens in the response body as well as cookies for Safari fallback
+            data['access'] = access_token
+            data['refresh'] = refresh_token
+            
             response = Response(data)
             
             response.set_cookie(
@@ -133,7 +137,7 @@ class LogoutView(APIView):
     def post(self, request):
         try:
             cookie_name = getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token')
-            refresh_token = request.COOKIES.get(cookie_name)
+            refresh_token = request.COOKIES.get(cookie_name) or request.data.get('refresh')
             
             if not refresh_token:
                 return Response({"detail": "Refresh token diperlukan."}, status=400)
@@ -160,10 +164,10 @@ class CookieTokenRefreshView(APIView):
     
     def post(self, request):
         cookie_name = getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token')
-        refresh_token = request.COOKIES.get(cookie_name)
+        refresh_token = request.COOKIES.get(cookie_name) or request.data.get('refresh')
         
         if not refresh_token:
-            return Response({"detail": "Refresh token tidak ditemukan di cookie."}, status=401)
+            return Response({"detail": "Refresh token tidak ditemukan."}, status=401)
             
         try:
             token = RefreshToken(refresh_token)
@@ -187,7 +191,11 @@ class CookieTokenRefreshView(APIView):
             else:
                 new_refresh_token = refresh_token
                 
-            response = Response({"message": "Token berhasil diperbarui."})
+            response = Response({
+                "message": "Token berhasil diperbarui.",
+                "access": access_token,
+                "refresh": new_refresh_token
+            })
             
             response.set_cookie(
                 key=getattr(settings, 'AUTH_COOKIE', 'access_token'),

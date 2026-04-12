@@ -579,12 +579,11 @@ class ForgotPasswordSerializer(serializers.Serializer):
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body {{ font-family: 'Be Vietnam Pro', sans-serif; background-color: #F9FAFB; margin: 0; padding: 0; }}
+    body {{ font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #F9FAFB; margin: 0; padding: 0; }}
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#F9FAFB;font-family:'Be Vietnam Pro', sans-serif;">
+<body style="margin:0;padding:0;background-color:#F9FAFB;font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:40px 16px;">
     <tr><td align="center">
       
