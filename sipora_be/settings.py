@@ -201,8 +201,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# ─── Email Configuration (Gmail SMTP) ───────────────────────────────────────────
-# Since Railway is on a paid plan, port 587 is unblocked. We can use standard Gmail SMTP.
+# ─── Email Configuration (SMTP Proxy) ───────────────────────────────────────────
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
 
 if EMAIL_USE_CONSOLE_BACKEND:

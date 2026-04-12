@@ -4,9 +4,8 @@ from django.core.mail.backends.base import BaseEmailBackend
 
 class VercelProxyEmailBackend(BaseEmailBackend):
     """
-    A custom email backend that bypasses Railway's port 587 block
-    by proxying the email request to a Vercel Serverless Function on the frontend.
-    Vercel natively allows port 587 connections to Gmail SMTP.
+    A custom email backend that proxies email requests to a Serverless Function.
+    Used for centralized email dispatching through HTTP.
     """
     def send_messages(self, email_messages):
         if not email_messages:
