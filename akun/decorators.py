@@ -12,7 +12,7 @@ def role_required(*roles):
                 return view_func(view_instance, request, *args, **kwargs)
 
             if request.user.role not in roles:
-                return Response({"detail": "Anda tidak memiliki akses untuk melakukan aksi ini."}, status=403)
+                return Response({"detail": "Tidak ditemukan."}, status=404)
             
             return view_func(view_instance, request, *args, **kwargs)
         return _wrapped_view

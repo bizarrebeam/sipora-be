@@ -297,14 +297,39 @@ class ForgotPasswordView(APIView):
     RATE_LIMIT_WINDOW = 3600    # Window duration in seconds (1 hour)
 
     def post(self, request):
+        import time
+        from django.core.cache import cache
+
+        # 1. IP-Based Rate Limiting (Prevent Spamming over different NIS)
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        ip_cache_key = f'forgot_pw_ip_rate:{ip}'
+        ip_data = cache.get(ip_cache_key)
+
+        if not ip_data:
+            ip_data = {'attempts': 0, 'expire_at': time.time() + self.RATE_LIMIT_WINDOW}
+        
+        remaining = int(ip_data['expire_at'] - time.time())
+        if remaining <= 0:
+            ip_data = {'attempts': 0, 'expire_at': time.time() + self.RATE_LIMIT_WINDOW}
+            remaining = self.RATE_LIMIT_WINDOW
+
+        if ip_data['attempts'] >= self.RATE_LIMIT_MAX:
+            return Response({
+                'detail': f'Kamu sudah mengirim lebih dari {self.RATE_LIMIT_MAX} email per jam.',
+                'retry_after': remaining
+            }, status=429)
+
         nis = request.data.get('nis', '').strip()
 
-        # Per-NIS rate limiting via Django's default cache
+        # 2. Per-NIS rate limiting via Django's default cache
         if nis:
-            from django.core.cache import cache
             cache_key = f'forgot_pw_rate:{nis}'
             attempts = cache.get(cache_key, 0)
-
             if attempts >= self.RATE_LIMIT_MAX:
                 return Response({
                     'nis': ['Terlalu banyak percobaan. Silakan tunggu 1 jam sebelum mencoba lagi.']
@@ -312,10 +337,11 @@ class ForgotPasswordView(APIView):
 
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
-            # Increment rate-limit counter after successful validation
+            # Increment rate-limit counter after successful validation for both constraints
+            ip_data['attempts'] += 1
+            cache.set(ip_cache_key, ip_data, max(1, remaining))
+
             if nis:
-                from django.core.cache import cache
-                cache_key = f'forgot_pw_rate:{nis}'
                 attempts = cache.get(cache_key, 0)
                 cache.set(cache_key, attempts + 1, self.RATE_LIMIT_WINDOW)
 
@@ -335,18 +361,56 @@ class ResetPasswordView(APIView):
     """
     permission_classes = [AllowAny]
 
+    RATE_LIMIT_MAX = 5          # Maximum requests per window (brute force protection)
+    RATE_LIMIT_WINDOW = 1800    # Window duration in seconds (30 mins)
+
     def post(self, request):
+        import time
+        from django.core.cache import cache
+
+        # IP-Based Rate Limiting for Token Stuffing
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        ip_cache_key = f'reset_pw_ip_rate:{ip}'
+        ip_data = cache.get(ip_cache_key)
+
+        if not ip_data:
+            ip_data = {'attempts': 0, 'expire_at': time.time() + self.RATE_LIMIT_WINDOW}
+        
+        remaining = int(ip_data['expire_at'] - time.time())
+        if remaining <= 0:
+            ip_data = {'attempts': 0, 'expire_at': time.time() + self.RATE_LIMIT_WINDOW}
+            remaining = self.RATE_LIMIT_WINDOW
+
+        if ip_data['attempts'] >= self.RATE_LIMIT_MAX:
+            return Response({
+                'detail': f'Anda telah mencapai batas maksimal percobaan ubah password. Coba lagi dalam beberapa saat.',
+                'retry_after': remaining
+            }, status=429)
+
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
+            # Reset attempts on success
+            cache.delete(ip_cache_key)
+            
             user = serializer.save()
             catat_log(
                 user=user,
                 aksi='RESET_PASSWORD',
                 deskripsi=f'Password direset melalui email untuk {user.nama_lengkap} (NIS: {user.nis}).',
                 modul='akun',
-                ip_address=request.META.get('REMOTE_ADDR')
+                ip_address=ip
             )
             return Response({"message": "Password berhasil diubah. Silakan login dengan password baru."})
+            
+        # Increment failed attempt
+        ip_data['attempts'] += 1
+        cache.set(ip_cache_key, ip_data, max(1, remaining))
+        
         return Response(serializer.errors, status=400)
 
 
