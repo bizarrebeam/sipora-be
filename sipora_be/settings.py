@@ -25,7 +25,7 @@ ALLOWED_HOST_ENV = os.getenv('ALLOWED_HOSTS')
 if ALLOWED_HOST_ENV:
     ALLOWED_HOSTS = ALLOWED_HOST_ENV.split(',')
 else:
-    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"] 
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"]
 
 INSTALLED_APPS = [
     'django.contrib.admin',

@@ -1,4 +1,14 @@
+"""
+Views module for the aspirasi application.
+
+Contains API views to create, list, view detail, mark/unmark,
+and edit aspirasi (user-submitted suggestions/complaints). Each view
+includes access checks (roles), request validation, activity logging,
+and uses corresponding serializers for input/output.
+"""
+
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -6,7 +16,7 @@ from django.shortcuts import get_object_or_404
 from django.db import models
 from django.utils.dateparse import parse_date
 
-from .models import Aspirasi, RiwayatStatusDitandai
+from .models import Aspirasi, RiwayatStatusDitandai, FotoBuktiPendukung
 from .serializers import (
     AspirasiSerializer,
     AspirasiListSerializer,
@@ -16,9 +26,23 @@ from log_aktivitas.utils import catat_log
 
 
 class CreateAspirasiView(APIView):
+    """Handle creation of a new `Aspirasi`.
+
+    Permissions: authenticated users with role `siswa` or `guru`.
+    POST: validate input via `CreateAspirasiSerializer`, create record,
+    log activity and return serialized response.
+    """
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        """Create a new aspirasi.
+
+        Args:
+            request: DRF Request with fields accepted by `CreateAspirasiSerializer`.
+
+        Returns:
+            Response with created aspirasi data on success, or validation/errors.
+        """
         # allow pelapor from siswa or guru
         if request.user.role not in ['siswa', 'guru']:
             return Response(
@@ -82,9 +106,18 @@ class CreateAspirasiView(APIView):
 
 
 class AspirasiListView(APIView):
+    """Return a paginated list of `Aspirasi` filtered by role and query params.
+
+    GET supports filters: `kategori`, `ditandai`, `search`, `date`, `sort`,
+    and pagination via `page` and `page_size`.
+    """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        """Retrieve list of aspirasi visible to the requester.
+
+        Returns paginated summary items serialized with `AspirasiListSerializer`.
+        """
         user = request.user
         
         if user.role == 'kemahasiswaan':
@@ -178,9 +211,23 @@ class AspirasiListView(APIView):
 
 
 class AspirasiDetailView(APIView):
+    """Retrieve or update detail fields for a single `Aspirasi`.
+
+    GET: returns full detail (restricted to owner or kemahasiswaan).
+    PATCH: used by kemahasiswaan to toggle `status_ditandai` and record history.
+    """
     permission_classes = [IsAuthenticated]
     
     def get(self, request, id):
+        """Return full detail of an aspirasi if requester has access.
+
+        Args:
+            request: DRF Request
+            id: primary key of the Aspirasi
+
+        Returns:
+            200 with `AspirasiSerializer` data, or 403/404 on access/exists errors.
+        """
         try:
             aspirasi = Aspirasi.objects.get(id=id)
         except Aspirasi.DoesNotExist:
@@ -220,7 +267,11 @@ class AspirasiDetailView(APIView):
         )
 
     def patch(self, request, id):
-        # Only kemahasiswaan can mark/unmark aspirasi
+        """Toggle `status_ditandai` for an aspirasi (kemahasiswaan only).
+
+        Expected payload: `status_ditandai` ("ditandai" | "tidak_ditandai").
+        Records change in `RiwayatStatusDitandai` and logs the action.
+        """
         user = request.user
         if user.role != 'kemahasiswaan':
             return Response(
@@ -256,7 +307,6 @@ class AspirasiDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        catatan = request.data.get('catatan')
         ip = request.META.get('REMOTE_ADDR')
 
         aspirasi.status_ditandai = new_status
@@ -266,8 +316,7 @@ class AspirasiDetailView(APIView):
         # Save history
         RiwayatStatusDitandai.objects.create(
             laporan=aspirasi,
-            status=new_status,
-            catatan=catatan,
+            status_ditandai=new_status,
             diubah_oleh=user
         )
 
@@ -288,3 +337,122 @@ class AspirasiDetailView(APIView):
             },
             status=status.HTTP_200_OK
         )
+    
+class EditAspirasiView(APIView):
+    """Allow the original sender to edit their aspirasi within time window.
+
+    Supports: GET (prefill), PUT (update fields, add/delete photos).
+    Accepts multipart form data for photo uploads (`foto_bukti`).
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def get(self, request, id):
+        """Return aspirasi data for edit form prefill.
+
+        Only accessible by the original `pelapor` and when status allows editing.
+        """
+        try:
+            aspirasi = Aspirasi.objects.get(id=id)
+        except Aspirasi.DoesNotExist:
+            return Response({"error": "Laporan tidak ditemukan"}, status=404)
+
+        if aspirasi.pelapor != request.user:
+            return Response({"error": "Hanya pengirim yang dapat mengakses laporan ini"}, status=403)
+
+        serializer = AspirasiSerializer(aspirasi, context={'request': request})
+        return Response({"status": "success", "data": serializer.data}, status=200)
+
+    def put(self, request, id):
+        """Update an existing aspirasi.
+
+        Fields allowed: `judul`, `kategori`, `deskripsi`, `anonimitas`.
+        Additional behavior: remove photos via `delete_foto_ids` or upload new ones
+        through `foto_bukti` file inputs. Edits allowed only within 7 days.
+        """
+        try:
+            aspirasi = Aspirasi.objects.get(id=id)
+        except Aspirasi.DoesNotExist:
+            return Response({"status": "error", "message": "Laporan tidak ditemukan", "data": None}, status=404)
+
+        if aspirasi.pelapor != request.user:
+            return Response({"status": "error", "message": "Hanya pengirim yang dapat mengubah laporan", "data": None}, status=403)
+
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # perubahan hanya dapat dilakukan sebelum 7 hari 
+        if timezone.now() - aspirasi.tanggal_aspirasi > timedelta(days=7):
+            return Response({"status": "error", "message": "Waktu edit laporan sudah habis (lebih dari 2 menit)", "data": None}, status=403)
+
+        # Update  fields if present
+        judul = request.data.get('judul')
+        kategori = request.data.get('kategori')
+        deskripsi = request.data.get('deskripsi')
+        anonimitas = request.data.get('anonimitas')
+
+        changed = False
+        if judul is not None:
+            aspirasi.judul = judul
+            changed = True
+        if kategori is not None:
+            aspirasi.kategori = kategori
+            changed = True
+        if deskripsi is not None:
+            aspirasi.deskripsi = deskripsi
+            changed = True
+        if anonimitas is not None:
+            # anonimitas may be string when sent via formdata
+            if isinstance(anonimitas, str):
+                aspirasi.anonimitas = anonimitas.lower() in ['1', 'true', 'yes']
+            else:
+                aspirasi.anonimitas = bool(anonimitas)
+            changed = True
+
+        if changed:
+            aspirasi.save()
+
+        # Handle deletion of existing photos
+        delete_ids = request.data.get('delete_foto_ids')
+        ids_to_delete = []
+        if delete_ids:
+            try:
+                import json
+                if isinstance(delete_ids, str):
+                    ids_to_delete = json.loads(delete_ids)
+                else:
+                    ids_to_delete = list(delete_ids)
+            except Exception:
+                if isinstance(delete_ids, str):
+                    ids_to_delete = [s for s in delete_ids.split(',') if s]
+
+        if ids_to_delete:
+            FotoBuktiPendukung.objects.filter(id__in=ids_to_delete, laporan=aspirasi).delete()
+
+        # Handle new uploaded photos
+        files = request.FILES.getlist('foto_bukti')
+        for f in files:
+            FotoBuktiPendukung.objects.create(laporan=aspirasi, foto=f)
+
+        ip = request.META.get('REMOTE_ADDR')
+        if aspirasi.anonimitas:
+            kelas = request.user.kelas or '-'
+            catat_log(
+                None,
+                'EDIT_LAPORAN',
+                f"Anonim dari Kelas {kelas} mengedit aspirasi: {aspirasi.no_laporan}",
+                'aspirasi',
+                ip
+            )
+        else:
+            catat_log(
+                request.user,
+                'EDIT_ASPIRASI',
+                f"Mengedit aspirasi: {aspirasi.no_laporan}",
+                'aspirasi',
+                ip
+            )
+
+        serializer = AspirasiSerializer(aspirasi, context={'request': request})
+        return Response({"status": "success", "message": "Laporan berhasil diubah", "data": serializer.data}, status=200)
+
