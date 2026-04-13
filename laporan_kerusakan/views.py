@@ -533,7 +533,7 @@ class CancelLaporanKerusakanView(APIView):
                 return Response(
                     {
                         'status': 'error',
-                        'message': 'Alasan pembatalan wajib diisi',
+                        'message': 'Alasan pembatalan wajib diisi minimal 50 karakter',
                         'data': errors
                     },
                     status=status.HTTP_400_BAD_REQUEST
