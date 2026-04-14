@@ -487,7 +487,15 @@ class AdminUpdateGuruView(APIView):
                 "message": f"Data guru {guru.nama_lengkap} berhasil diperbarui.",
                 "data": PenggunaSerializer(guru).data
             })
-        return Response(serializer.errors, status=400)
+        
+        # Detect OCC conflict — return 409 so frontend can distinguish from 400 validation errors
+        errors = serializer.errors
+        non_field = errors.get('non_field_errors', [])
+        if any('CONFLICT:' in str(e) for e in non_field):
+            conflict_msg = str(non_field[0]).replace('CONFLICT: ', '')
+            return Response({'detail': conflict_msg, 'conflict': True}, status=409)
+        
+        return Response(errors, status=400)
 
 
 class AdminDaftarAkunView(APIView):
@@ -564,7 +572,11 @@ class AdminVerifikasiSiswaView(APIView):
             return Response({"detail": "Siswa tidak ditemukan."}, status=404)
 
         if siswa.is_verified:
-            return Response({"detail": "Siswa ini sudah terverifikasi."}, status=400)
+            return Response({
+                "detail": "Siswa ini sudah diverifikasi sebelumnya — kemungkinan oleh admin lain. "
+                          "Data siswa sudah dalam status terverifikasi.",
+                "already_verified": True
+            }, status=400)
 
         siswa.is_verified = True
         siswa.save()

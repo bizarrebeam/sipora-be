@@ -48,6 +48,9 @@ class Pengguna(AbstractUser):
     mata_pelajaran = models.CharField(max_length=255, null=True, blank=True)
     is_verified = models.BooleanField(default=False, db_index=True)
 
+    # Concurrency & Audit Metadata
+    updated_at = models.DateTimeField(auto_now=True)
+
     # Soft Delete Metadata
     is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)

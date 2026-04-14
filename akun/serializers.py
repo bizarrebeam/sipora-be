@@ -240,14 +240,18 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
     """
     Serializer for administrators updating Teacher (Guru) accounts.
     Allows updating name, email, and teaching history.
+    Implements OCC via `updated_at` token — rejects update if the record has been
+    modified since the client last fetched it, returning a 409-compatible message.
     """
     riwayat_mengajar = serializers.ListField(
         child=serializers.DictField(), required=False
     )
+    # OCC version token — client must send the updated_at they received from GET
+    updated_at = serializers.DateTimeField(write_only=True, required=False)
 
     class Meta:
         model = Pengguna
-        fields = ('nama_lengkap', 'email', 'riwayat_mengajar')
+        fields = ('nama_lengkap', 'email', 'riwayat_mengajar', 'updated_at')
 
     def validate_nama_lengkap(self, value):
         if not value or not value.strip():
@@ -283,6 +287,29 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
                 'kelas_diajar': kelas
             })
         return cleaned_data
+
+    def validate(self, data):
+        """
+        OCC check: if client sent an updated_at token, verify it matches the current
+        database value. A mismatch means another user has edited the record since the
+        client last fetched it — reject with a 409-style validation error.
+        """
+        client_updated_at = data.pop('updated_at', None)
+        if client_updated_at and self.instance:
+            # Normalize both to UTC-aware for comparison
+            from django.utils import timezone
+            instance_ts = self.instance.updated_at
+            if timezone.is_naive(instance_ts):
+                instance_ts = timezone.make_aware(instance_ts)
+            if timezone.is_naive(client_updated_at):
+                client_updated_at = timezone.make_aware(client_updated_at)
+            # Truncate to seconds for tolerance
+            if abs((instance_ts - client_updated_at).total_seconds()) > 1:
+                raise serializers.ValidationError(
+                    "CONFLICT: Data ini sudah diubah oleh pengguna lain sejak kamu membuka form ini. "
+                    "Silakan muat ulang halaman untuk melihat data terbaru sebelum menyimpan perubahan."
+                )
+        return data
 
     def update(self, instance, validated_data):
         riwayat_data = validated_data.pop('riwayat_mengajar', None)
@@ -377,6 +404,7 @@ class PenggunaSerializer(serializers.ModelSerializer):
     """
     Comprehensive user serializer used for transmitting authorized profile details.
     Includes dynamically computed academic year and semester fields.
+    Exposes `updated_at` as an OCC version token for frontend concurrency control.
     """
     tahun_ajaran = serializers.SerializerMethodField()
     semester = serializers.SerializerMethodField()
@@ -393,7 +421,7 @@ class PenggunaSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'nis', 'nuptk', 'nama_lengkap', 'email',
             'role', 'kelas', 'mata_pelajaran', 'is_active', 'is_verified',
-            'date_joined', 'tahun_ajaran', 'semester', 'riwayat_mengajar'
+            'date_joined', 'updated_at', 'tahun_ajaran', 'semester', 'riwayat_mengajar'
         )
 
     def get_tahun_ajaran(self, obj):
@@ -404,14 +432,14 @@ class PenggunaSerializer(serializers.ModelSerializer):
 
 
 class PenggunaListSerializer(serializers.ModelSerializer):
-    """Lean serializer for admin list view — no computed fields."""
+    """Lean serializer for admin list view — no computed fields. Exposes `updated_at` for OCC tokens."""
     riwayat_mengajar = MataPelajaranGuruSemesterSerializer(many=True, read_only=True)
 
     class Meta:
         model = Pengguna
         fields = (
             'id', 'username', 'nis', 'nuptk', 'nama_lengkap', 'email',
-            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined', 'riwayat_mengajar'
+            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined', 'updated_at', 'riwayat_mengajar'
         )
 
 
