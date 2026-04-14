@@ -686,6 +686,32 @@ class UpdateStatusLaporanKerusakanView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+            # Check if pelapor account is verified (only for admin status updates)
+            if not laporan.pelapor.is_verified:
+                # Log the failed verification attempt
+                ip = request.META.get('REMOTE_ADDR')
+                catat_log(
+                    user,
+                    'ATTEMPT_UPDATE_STATUS_UNVERIFIED_USER',
+                    f"Percobaan mengubah status laporan kerusakan untuk akun belum terverifikasi: {laporan.no_laporan}",
+                    'kerusakan',
+                    ip
+                )
+
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'AKUN_BELUM_TERVERIFIKASI',
+                        'data': {
+                            'nama': laporan.pelapor.nama_lengkap,
+                            'nis': laporan.pelapor.nis or '-',
+                            'kelas': laporan.pelapor.kelas or '-',
+                            'pelapor_id': str(laporan.pelapor.id)
+                        }
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         # Update status
         laporan.status = status_new
         laporan.save()

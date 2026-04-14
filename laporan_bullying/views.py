@@ -185,33 +185,99 @@ class EditLaporanBullyingView(APIView):
         if laporan.status != 'menunggu':
             return Response({"error": "Laporan tidak dapat diubah karena sudah diproses"}, status=400)
 
-        serializer = LaporanBullyingCreateUpdateSerializer(laporan, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
+        # ── Update field langsung (pola aspirasi) ──
+        judul = request.data.get('judul')
+        deskripsi = request.data.get('deskripsi')
+        lokasi = request.data.get('lokasi')
+        tanggal_kejadian = request.data.get('tanggal_kejadian')
+        waktu_kejadian = request.data.get('waktu_kejadian')
+        jenis_bullying = request.data.get('jenis_bullying')
+        anonimitas = request.data.get('anonimitas')
 
-            # Log activity
-            ip = request.META.get('REMOTE_ADDR')
-            if laporan.anonimitas:
-                kelas = request.user.kelas or '-'
-                catat_log(
-                    None,
-                    'EDIT_LAPORAN',
-                    f"Anonim dari Kelas {kelas} mengedit laporan bullying: {laporan.no_laporan}",
-                    'laporan_bullying',
-                    ip
-                )
+        changed = False
+        if judul is not None:
+            laporan.judul = judul
+            changed = True
+        if deskripsi is not None:
+            laporan.deskripsi = deskripsi
+            changed = True
+        if lokasi is not None:
+            laporan.lokasi = lokasi
+            changed = True
+        if tanggal_kejadian is not None:
+            laporan.tanggal_kejadian = tanggal_kejadian
+            changed = True
+        if waktu_kejadian is not None:
+            laporan.waktu_kejadian = waktu_kejadian or None
+            changed = True
+        if jenis_bullying is not None:
+            laporan.jenis_bullying = jenis_bullying
+            changed = True
+        if anonimitas is not None:
+            if isinstance(anonimitas, str):
+                laporan.anonimitas = anonimitas.lower() in ['1', 'true', 'yes']
             else:
-                catat_log(
-                    request.user,
-                    'EDIT_LAPORAN',
-                    f"Mengedit laporan bullying: {laporan.no_laporan}",
-                    'laporan_bullying',
-                    ip
+                laporan.anonimitas = bool(anonimitas)
+            changed = True
+
+        if changed:
+            laporan.save()
+
+        # ── Hapus foto spesifik (pola aspirasi: JSON parse + fallback comma-split) ──
+        delete_ids_raw = request.data.get('deleted_foto_ids')
+        ids_to_delete = []
+        if delete_ids_raw:
+            try:
+                import json
+                if isinstance(delete_ids_raw, str):
+                    ids_to_delete = json.loads(delete_ids_raw)
+                else:
+                    ids_to_delete = list(delete_ids_raw)
+            except Exception:
+                if isinstance(delete_ids_raw, str):
+                    ids_to_delete = [s.strip() for s in delete_ids_raw.split(',') if s.strip()]
+
+        if ids_to_delete:
+            laporan.foto_bukti.filter(id__in=ids_to_delete).delete()
+
+        # ── Tambah foto baru ──
+        files = request.FILES.getlist('foto_bukti')
+        if files:
+            current_count = laporan.foto_bukti.count()
+            if current_count + len(files) > 5:
+                return Response(
+                    {"error": f"Maksimal 5 foto (saat ini {current_count} foto, tidak bisa menambah {len(files)} lagi)"},
+                    status=400
                 )
+            for file in files:
+                if file.size > 5 * 1024 * 1024:
+                    return Response({"error": f"Ukuran {file.name} maksimal 5MB"}, status=400)
+                if not file.content_type.startswith('image/'):
+                    return Response({"error": f"File {file.name} harus berupa gambar"}, status=400)
+            for file in files:
+                FotoBuktiBullying.objects.create(laporan=laporan, foto=file)
 
-            return Response({"message": "Laporan berhasil diubah", "data": serializer.data})
+        # Log activity
+        ip = request.META.get('REMOTE_ADDR')
+        if laporan.anonimitas:
+            kelas = request.user.kelas or '-'
+            catat_log(
+                None,
+                'EDIT_LAPORAN',
+                f"Anonim dari Kelas {kelas} mengedit laporan bullying: {laporan.no_laporan}",
+                'laporan_bullying',
+                ip
+            )
+        else:
+            catat_log(
+                request.user,
+                'EDIT_LAPORAN',
+                f"Mengedit laporan bullying: {laporan.no_laporan}",
+                'laporan_bullying',
+                ip
+            )
 
-        return Response(serializer.errors, status=400)
+        return Response({"message": "Laporan berhasil diubah", "data": LaporanBullyingDetailSerializer(laporan, context={'request': request}).data})
 
 class CancelLaporanBullyingView(APIView):
     """
@@ -376,6 +442,32 @@ class UpdateStatusLaporanBullyingView(APIView):
                         'status': 'error',
                         'message': 'Hanya Kemahasiswaan atau Guru BK yang dapat mengubah status laporan',
                         'data': None
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Check if pelapor account is verified (only for admin status updates)
+            if not laporan.pelapor.is_verified:
+                # Log the failed verification attempt
+                ip = request.META.get('REMOTE_ADDR')
+                catat_log(
+                    user,
+                    'ATTEMPT_UPDATE_STATUS_UNVERIFIED_USER',
+                    f"Percobaan mengubah status laporan bullying untuk akun belum terverifikasi: {laporan.no_laporan}",
+                    'bullying',
+                    ip
+                )
+
+                return Response(
+                    {
+                        'status': 'error',
+                        'message': 'AKUN_BELUM_TERVERIFIKASI',
+                        'data': {
+                            'nama': laporan.pelapor.nama_lengkap,
+                            'nis': laporan.pelapor.nis or '-',
+                            'kelas': laporan.pelapor.kelas or '-',
+                            'pelapor_id': str(laporan.pelapor.id)
+                        }
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
