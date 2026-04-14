@@ -119,7 +119,7 @@ class JadwalKonsultasiListCreateView(APIView):
                 aksi='Buat Jadwal Konsultasi',
                 deskripsi=f'Membuat jadwal konsultasi pada {jadwal.tanggal} '
                           f'{jadwal.waktu_mulai}-{jadwal.waktu_selesai}',
-                modul='Konsultasi'
+                modul='konsultasi_bk'
             )
 
             return Response({
@@ -203,7 +203,7 @@ class JadwalKonsultasiDetailView(APIView):
                 user=request.user,
                 aksi='Edit Jadwal Konsultasi',
                 deskripsi=f'Mengubah jadwal konsultasi ID {jadwal.id}',
-                modul='Konsultasi'
+                modul='konsultasi_bk'
             )
 
             return Response({
@@ -245,7 +245,7 @@ class JadwalKonsultasiDetailView(APIView):
             user=request.user,
             aksi='Hapus Jadwal Konsultasi',
             deskripsi=f'Menghapus jadwal konsultasi: {jadwal_info}',
-            modul='Konsultasi'
+            modul='konsultasi_bk'
         )
 
         return Response({"message": "Jadwal berhasil dihapus."})
@@ -401,7 +401,7 @@ class BookingKonsultasiView(APIView):
             aksi='Buat Booking Konsultasi',
             deskripsi=f'Membuat booking konsultasi ID {booking.id} '
                       f'untuk jadwal {jadwal.tanggal} {jadwal.waktu_mulai}',
-            modul='Konsultasi'
+            modul='konsultasi_bk'
         )
 
         return Response({

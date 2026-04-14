@@ -277,7 +277,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
     Nests related serializers (evidence photos and status history) and fetches
     complete user and report details, taking anonymity flags into account.
     """
-    pelapor = serializers.IntegerField(source='pelapor.id', read_only=True)
+    pelapor = serializers.UUIDField(source='pelapor.id', read_only=True)
     foto_bukti = FotoBuktiBullyingSerializer(many=True, read_only=True)
     nama_pengirim = serializers.SerializerMethodField()
     akun_terverifikasi = serializers.BooleanField(source='pelapor.is_verified', read_only=True)
