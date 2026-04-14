@@ -659,7 +659,7 @@ class UpdateStatusLaporanKerusakanView(APIView):
             return Response(
                 {
                     'status': 'error',
-                    'message': f'Tidak dapat mengubah status dari {status_current} ke {status_new}',
+                    'message': f'Tidak dapat mengubah status dari {STATUS_LABELS.get(status_current, status_current)} ke {STATUS_LABELS.get(status_new, status_new)}',
                     'data': None
                 },
                 status=status.HTTP_400_BAD_REQUEST
@@ -730,7 +730,7 @@ class UpdateStatusLaporanKerusakanView(APIView):
         catat_log(
             user,
             'UPDATE_STATUS_LAPORAN',
-            f"Mengubah status laporan kerusakan {laporan.no_laporan} menjadi {status_new}",
+            f"Mengubah status laporan kerusakan {laporan.no_laporan} menjadi {STATUS_LABELS.get(status_new, status_new)}",
             'kerusakan',
             ip
         )
