@@ -322,7 +322,7 @@ class AspirasiDetailView(APIView):
 
         catat_log(
             user,
-            'TANDAL_APIRASI',
+            'TANDAI_ASPIRASI',
             f"Mengubah status ditandai {aspirasi.no_laporan} → {new_status}",
             'aspirasi',
             ip
