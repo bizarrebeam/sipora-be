@@ -369,7 +369,22 @@ class BookingKonsultasiCreateSerializer(serializers.ModelSerializer):
         jadwal = data.get('jadwal')
 
         if siswa and jadwal:
-            # Ambil semua booking aktif siswa
+            # 1. Pastikan siswa tidak booking lebih dari 2 kali di hari yang sama
+            # (hanya menghitung booking yang tidak ditolak/dibatalkan)
+            booking_hari_ini = BookingKonsultasi.objects.filter(
+                siswa=siswa,
+                jadwal__tanggal=jadwal.tanggal
+            ).exclude(
+                status__in=['ditolak', 'dibatalkan_siswa', 'dibatalkan_guru_bk']
+            ).count()
+
+            if booking_hari_ini >= 2:
+                raise serializers.ValidationError(
+                    "Kamu sudah mencapai batas maksimal 2 kali booking pada tanggal ini."
+                )
+
+            # 2. Ambil semua booking aktif siswa
+            # Cari semua booking siswa yang masih aktif (belum selesai/dibatalkan)
             # Cari semua booking siswa yang masih aktif (belum selesai/dibatalkan)
             booking_aktif = BookingKonsultasi.objects.filter(
                 siswa=siswa,
