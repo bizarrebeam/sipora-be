@@ -116,7 +116,7 @@ class JadwalKonsultasiListCreateView(APIView):
 
             catat_log(
                 user=request.user,
-                aksi='Buat Jadwal Konsultasi',
+                aksi='BUAT_JADWAL_KONSULTASI',
                 deskripsi=f'Membuat jadwal konsultasi pada {jadwal.tanggal} '
                           f'{jadwal.waktu_mulai}-{jadwal.waktu_selesai}',
                 modul='konsultasi_bk'
@@ -201,7 +201,7 @@ class JadwalKonsultasiDetailView(APIView):
 
             catat_log(
                 user=request.user,
-                aksi='Edit Jadwal Konsultasi',
+                aksi='EDIT_JADWAL_KONSULTASI',
                 deskripsi=f'Mengubah jadwal konsultasi ID {jadwal.id}',
                 modul='konsultasi_bk'
             )
@@ -243,7 +243,7 @@ class JadwalKonsultasiDetailView(APIView):
 
         catat_log(
             user=request.user,
-            aksi='Hapus Jadwal Konsultasi',
+            aksi='HAPUS_JADWAL_KONSULTASI',
             deskripsi=f'Menghapus jadwal konsultasi: {jadwal_info}',
             modul='konsultasi_bk'
         )
@@ -398,7 +398,7 @@ class BookingKonsultasiView(APIView):
 
         catat_log(
             user=request.user,
-            aksi='Buat Booking Konsultasi',
+            aksi='BUAT_BOOKING_KONSULTASI',
             deskripsi=f'Membuat booking konsultasi ID {booking.id} '
                       f'untuk jadwal {jadwal.tanggal} {jadwal.waktu_mulai}',
             modul='konsultasi_bk'

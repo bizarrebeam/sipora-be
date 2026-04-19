@@ -154,7 +154,10 @@ class BookingKonsultasi(models.Model):
     jadwal = models.OneToOneField(
         JadwalKonsultasi,
         on_delete=models.CASCADE,
-        related_name='booking'
+        related_name='booking',
+        error_messages={
+            'unique': 'Maaf, jadwal ini sudah tidak tersedia'
+        }
     )
 
     # Deskripsi alasan mengapa siswa ingin berkonsultasi
