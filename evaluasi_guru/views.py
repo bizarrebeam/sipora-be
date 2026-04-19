@@ -7,6 +7,8 @@ from django.utils import timezone
 from .models import Evaluasi, NilaiEvaluasi, Indikator, get_tahun_ajaran, get_semester
 from .serializers import IndikatorSerializer, GuruSimpleSerializer, sanitize_text
 from log_aktivitas.utils import catat_log
+from akun.models import MataPelajaranGuruSemester
+import json
 
 User = get_user_model()
 
@@ -49,9 +51,6 @@ class EvaluasiCreateView(APIView):
                 {"detail": "Data kelas Anda tidak ditemukan."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        from akun.models import MataPelajaranGuruSemester
-        import json
         
         riwayat_guru = MataPelajaranGuruSemester.objects.filter(
             guru=guru,
