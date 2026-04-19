@@ -67,7 +67,7 @@ class ArtikelListCreateView(APIView):
             response_serializer = ArtikelSerializer(artikel, context={'request': request})
             catat_log(
                 user=request.user,
-                aksi="Membuat Artikel",
+                aksi="MEMBUAT_ARTIKEL",
                 deskripsi=f"Membuat artikel {artikel.judul}",
                 modul="Artikel"
             )
@@ -129,7 +129,7 @@ class ArtikelDetailUpdateView(APIView):
             artikel = serializer.save()
             catat_log(
                 user=request.user,
-                aksi="Mengedit Artikel",
+                aksi="MENGEDIT_ARTIKEL",
                 deskripsi=f"Mengedit artikel {artikel.judul}",
                 modul="Artikel"
             )

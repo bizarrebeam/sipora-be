@@ -1,6 +1,7 @@
 """
 Serializers module for the konsultasi application.
 
+
 Handles validation and serialization for:
 - JadwalKonsultasi (PBI-38)
 - BookingKonsultasi (PBI-39, PBI-43)
@@ -70,7 +71,7 @@ class JadwalKonsultasiSerializer(serializers.ModelSerializer):
 
     def validate_tanggal(self, value):
         """
-        Validasi bahwa tanggal tidak boleh sebelum hari ini.
+        Validasi bahwa tanggal tidak boleh sebelum hari ini dan maksimal 1 bulan (30 hari) ke depan.
         
         Args:
             value (date): Tanggal yang akan divalidasi
@@ -79,12 +80,20 @@ class JadwalKonsultasiSerializer(serializers.ModelSerializer):
             date: Tanggal yang sudah divalidasi
             
         Raises:
-            serializers.ValidationError: Jika tanggal sebelum hari ini
+            serializers.ValidationError: Jika tanggal tidak valid
         """
+        from datetime import timedelta
+        
         if value < date.today():
             raise serializers.ValidationError(
                 "Tanggal tidak boleh sebelum hari ini."
             )
+            
+        if value > date.today() + timedelta(days=30):
+            raise serializers.ValidationError(
+                "Jadwal hanya bisa dibuat maksimal 1 bulan (30 hari) ke depan."
+            )
+            
         return value
 
     def validate(self, data):
@@ -118,6 +127,18 @@ class JadwalKonsultasiSerializer(serializers.ModelSerializer):
             if waktu_mulai >= waktu_selesai:
                 raise serializers.ValidationError(
                     "Waktu mulai harus lebih kecil dari waktu selesai."
+                )
+            
+            from datetime import time
+            if waktu_mulai < time(6, 0) or waktu_selesai > time(16, 0):
+                raise serializers.ValidationError(
+                    "Jadwal hanya bisa dibuat pada jam kerja (06:00 - 16:00)"
+                )
+                
+            diff_minutes = (waktu_selesai.hour * 60 + waktu_selesai.minute) - (waktu_mulai.hour * 60 + waktu_mulai.minute)
+            if diff_minutes > 60:
+                raise serializers.ValidationError(
+                    "Maksimal durasi jadwal adalah 1 jam."
                 )
 
         # Cegah pembuatan/perubahan slot di masa lalu untuk tanggal hari ini.
@@ -258,6 +279,13 @@ class BookingKonsultasiCreateSerializer(serializers.ModelSerializer):
             'deskripsi',
         ]
         read_only_fields = ['id']
+        extra_kwargs = {
+            'jadwal': {
+                'error_messages': {
+                    'unique': 'Maaf, jadwal ini sudah tidak tersedia karena telah dipesan oleh siswa lain.',
+                }
+            }
+        }
 
     def validate_deskripsi(self, value):
         """
@@ -274,7 +302,12 @@ class BookingKonsultasiCreateSerializer(serializers.ModelSerializer):
         """
         if not value or not value.strip():
             raise serializers.ValidationError("Deskripsi konsultasi wajib diisi.")
-        return value.strip()
+            
+        val_stripped = value.strip()
+        if len(val_stripped) < 20 or len(val_stripped) > 150:
+            raise serializers.ValidationError("Alasan konsultasi harus 20 - 150 karakter.")
+            
+        return val_stripped
 
     def validate_jadwal(self, value):
         """
