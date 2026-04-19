@@ -140,6 +140,10 @@ class JadwalKonsultasiSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Maksimal durasi jadwal adalah 1 jam."
                 )
+            if diff_minutes < 10:
+                raise serializers.ValidationError(
+                    "Minimal durasi jadwal adalah 10 menit."
+                )
 
         # Cegah pembuatan/perubahan slot di masa lalu untuk tanggal hari ini.
         if tanggal == date.today() and waktu_mulai:
