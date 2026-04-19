@@ -12,7 +12,8 @@ from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 import re
 
 # Validation constants
-MIN_REJECTION_REASON_LENGTH = 20
+MIN_REJECTION_REASON_LENGTH = 50
+MIN_STATUS_NOTE_LENGTH = 50
 MIN_BULLYING_NOTE_LENGTH = 10
 
 def sanitize_text(value):
@@ -84,6 +85,11 @@ class UpdateStatusLaporanBullyingSerializer(serializers.Serializer):
         if status_new == 'menunggu_konfirmasi_selesai' and not note:
             raise serializers.ValidationError(
                 'Catatan tindak lanjut wajib diisi sebelum meminta konfirmasi pelapor'
+            )
+
+        if status_new == 'menunggu_konfirmasi_selesai' and len(note) < MIN_STATUS_NOTE_LENGTH:
+            raise serializers.ValidationError(
+                f'Catatan tindak lanjut minimal {MIN_STATUS_NOTE_LENGTH} karakter'
             )
 
         return data

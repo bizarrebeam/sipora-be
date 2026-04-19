@@ -20,7 +20,8 @@ MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 MAX_TOTAL_SIZE_BYTES = MAX_FILES * MAX_FILE_SIZE_BYTES
 MIN_REPORT_DATE = _date(2000, 1, 1)
 MIN_CANCEL_REASON_LENGTH = 50
-MIN_REJECTION_REASON_LENGTH = 20
+MIN_REJECTION_REASON_LENGTH = 50
+MIN_STATUS_NOTE_LENGTH = 50
 FORBIDDEN_SPECIAL_CHARS_REGEX = re.compile(r'[@!~`#$%^*+]')
 
 
@@ -389,6 +390,11 @@ class UpdateStatusLaporanKerusakanSerializer(serializers.Serializer):
         if status_new == 'menunggu_konfirmasi_selesai' and not note:
             raise serializers.ValidationError(
                 'Catatan tindak lanjut wajib diisi sebelum meminta konfirmasi pelapor'
+            )
+
+        if status_new == 'menunggu_konfirmasi_selesai' and len(note) < MIN_STATUS_NOTE_LENGTH:
+            raise serializers.ValidationError(
+                f'Catatan tindak lanjut minimal {MIN_STATUS_NOTE_LENGTH} karakter'
             )
 
         return data
