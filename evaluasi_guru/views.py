@@ -19,8 +19,8 @@ class EvaluasiCreateView(APIView):
         # Validasi role siswa
         if user.role != "siswa":
             return Response(
-                {"detail": "Hanya siswa yang dapat memberikan evaluasi."}, 
-                status=status.HTTP_403_FORBIDDEN
+                {"detail": "Menu tidak tersedia"}, 
+                status=status.HTTP_404_NOT_FOUND
             )
 
         # Validasi staff_id / guru
