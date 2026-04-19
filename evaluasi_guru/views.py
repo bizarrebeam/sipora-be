@@ -40,6 +40,43 @@ class EvaluasiCreateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        now = timezone.now()
+        tahun_ajaran = get_tahun_ajaran(now)
+        semester = get_semester(now)
+
+        if not user.kelas:
+            return Response(
+                {"detail": "Data kelas Anda tidak ditemukan."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from akun.models import MataPelajaranGuruSemester
+        import json
+        
+        riwayat_guru = MataPelajaranGuruSemester.objects.filter(
+            guru=guru,
+            tahun_ajaran=tahun_ajaran,
+            semester=semester
+        )
+        
+        mengajar_di_kelas = False
+        for r in riwayat_guru:
+            kd = r.kelas_diajar
+            if isinstance(kd, str):
+                try:
+                    kd = json.loads(kd)
+                except Exception:
+                    kd = []
+            if isinstance(kd, list) and user.kelas in kd:
+                mengajar_di_kelas = True
+                break
+                
+        if not mengajar_di_kelas:
+            return Response(
+                {"detail": "Anda hanya dapat memberikan evaluasi kepada guru yang mengajar di kelas Anda pada semester ini."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Validasi rating (harus array/list dari object dgn indikator_id dan nilai)
         ratings = request.data.get("rating")
         if not ratings or not isinstance(ratings, list) or len(ratings) == 0:
@@ -106,10 +143,6 @@ class EvaluasiCreateView(APIView):
             komentar_str = ""
 
         # Validasi 1 pengisian per periode
-        now = timezone.now()
-        tahun_ajaran = get_tahun_ajaran(now)
-        semester = get_semester(now)
-
         if Evaluasi.objects.filter(siswa=user, guru=guru, tahun_ajaran=tahun_ajaran, semester=semester).exists():
             return Response(
                 {"detail": "Anda sudah memberikan evaluasi untuk guru ini pada periode ini."}, 
