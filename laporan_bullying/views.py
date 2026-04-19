@@ -180,7 +180,7 @@ class EditLaporanBullyingView(APIView):
             return Response({"error": "Laporan tidak ditemukan"}, status=404)
 
         if laporan.pelapor != request.user:
-            return Response({"error": "Hanya pengirim yang dapat mengakses dan mengubah laporan"}, status=403)
+            return Response({"error": "Laporan tidak ditemukan"}, status=404)
 
         if laporan.status != 'menunggu':
             return Response({"error": "Laporan tidak dapat diubah karena sudah diproses"}, status=400)
@@ -316,7 +316,7 @@ class CancelLaporanBullyingView(APIView):
             return Response({"error": "Laporan tidak ditemukan"}, status=404)
 
         if laporan.pelapor != request.user:
-            return Response({"error": "Hanya pembuat laporan yang bisa membatalkan"}, status=403)
+            return Response({"error": "Laporan tidak ditemukan"}, status=404)
 
         if laporan.status != 'menunggu':
             return Response({"error": "Laporan tidak dapat dibatalkan karena sudah diproses."}, status=400)
