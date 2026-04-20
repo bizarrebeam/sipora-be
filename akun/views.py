@@ -25,6 +25,7 @@ from .serializers import (
     EditProfilSerializer,
     UbahPasswordSerializer,
     ForgotPasswordSerializer,
+    ForgotPasswordGuruSerializer,
     ResetPasswordSerializer,
 )
 from .models import Pengguna
@@ -613,3 +614,110 @@ class AdminJumlahAkunView(APIView):
         counts = qs.values('role').annotate(total=Count('id'))
         result = {item['role']: item['total'] for item in counts}
         return Response(result)
+
+
+# ─── Guru Password Recovery ───────────────────────────────────────────────────
+
+class ForgotPasswordGuruView(APIView):
+    """
+    Initiates the password reset workflow for Guru (Teacher) accounts by sending
+    an email with a secure token. Identified by NUPTK instead of NIS.
+    Enforces per-NUPTK rate limiting (3 requests/hour) to prevent abuse.
+    """
+    permission_classes = [AllowAny]
+
+    RATE_LIMIT_MAX = 3
+    RATE_LIMIT_WINDOW = 3600
+
+    def post(self, request):
+        import time
+        from django.core.cache import cache
+
+        # 1. IP-Based Rate Limiting
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        ip_cache_key = f'forgot_pw_guru_ip_rate:{ip}'
+        ip_data = cache.get(ip_cache_key)
+
+        if not ip_data:
+            ip_data = {'attempts': 0, 'expire_at': time.time() + self.RATE_LIMIT_WINDOW}
+        
+        remaining = int(ip_data['expire_at'] - time.time())
+        if remaining <= 0:
+            ip_data = {'attempts': 0, 'expire_at': time.time() + self.RATE_LIMIT_WINDOW}
+            remaining = self.RATE_LIMIT_WINDOW
+
+        if ip_data['attempts'] >= self.RATE_LIMIT_MAX:
+            return Response({
+                'detail': f'Kamu sudah mengirim lebih dari {self.RATE_LIMIT_MAX} email per jam.',
+                'retry_after': remaining
+            }, status=429)
+
+        nuptk = request.data.get('nuptk', '').strip()
+
+        # 2. Per-NUPTK rate limiting
+        if nuptk:
+            cache_key = f'forgot_pw_guru_rate:{nuptk}'
+            attempts = cache.get(cache_key, 0)
+            if attempts >= self.RATE_LIMIT_MAX:
+                return Response({
+                    'nuptk': ['Terlalu banyak percobaan. Silakan tunggu 1 jam sebelum mencoba lagi.']
+                }, status=429)
+
+        serializer = ForgotPasswordGuruSerializer(data=request.data)
+        if serializer.is_valid():
+            # Increment rate-limit counters after successful validation
+            ip_data['attempts'] += 1
+            cache.set(ip_cache_key, ip_data, max(1, remaining))
+
+            if nuptk:
+                attempts = cache.get(cache_key, 0)
+                cache.set(cache_key, attempts + 1, self.RATE_LIMIT_WINDOW)
+
+            masked_email = serializer.save()
+            return Response({
+                "message": f"Email reset password sudah dikirimkan ke {masked_email}",
+                "masked_email": masked_email,
+            })
+        return Response(serializer.errors, status=400)
+
+
+# ─── Administrative Guru BK Password Reset ────────────────────────────────────
+
+class AdminResetPasswordBKView(APIView):
+    """
+    Allows Kemahasiswaan administrators to reset a Guru BK's password to the
+    default seed password (from SEED_PASSWORD_BK environment variable).
+    The Guru BK should then change their password after logging in.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @role_required('kemahasiswaan')
+    def post(self, request, user_id):
+        import os
+
+        try:
+            guru_bk = Pengguna.objects.get(pk=user_id, role='guru_bk')
+        except Pengguna.DoesNotExist:
+            return Response({"detail": "Guru BK tidak ditemukan."}, status=404)
+
+        # Reset to the base password from environment
+        base_password = os.getenv('SEED_PASSWORD_BK', '[REDACTED]')
+        guru_bk.set_password(base_password)
+        guru_bk.save()
+
+        catat_log(
+            user=request.user,
+            aksi='RESET_PASSWORD',
+            deskripsi=f'Admin mereset password Guru BK: {guru_bk.nama_lengkap} ({guru_bk.username}) ke password default.',
+            modul='akun',
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+
+        return Response({
+            "message": f"Password Guru BK {guru_bk.nama_lengkap} berhasil direset ke password default."
+        })

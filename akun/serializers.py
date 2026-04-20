@@ -758,6 +758,124 @@ class ForgotPasswordSerializer(serializers.Serializer):
         return mask_email(user.email)
 
 
+class ForgotPasswordGuruSerializer(serializers.Serializer):
+    """
+    Validates NUPTK lookup during password recovery requests for Guru (Teacher) accounts.
+    Triggers an asynchronous SMTP email dispatch containing a time-sensitive reset token.
+    Reuses the same branded email template as the Siswa forgot-password flow.
+    """
+    nuptk = serializers.CharField()
+
+    def validate_nuptk(self, value):
+        if not value.isdigit() or len(value) != 16:
+            raise serializers.ValidationError("NUPTK harus terdiri dari 16 digit angka.")
+        try:
+            user = Pengguna.objects.get(nuptk=value, role='guru')
+        except Pengguna.DoesNotExist:
+            raise serializers.ValidationError("NUPTK tidak ditemukan.")
+        if not user.email:
+            raise serializers.ValidationError("Akun ini belum memiliki email terdaftar.")
+        self.user = user
+        return value
+
+    def save(self):
+        user = self.user
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        reset_link = f"{frontend_url}/reset-password/{uid}/{token}"
+
+        plain_message = (
+            f'Halo {user.nama_lengkap},\n\n'
+            f'Kami menerima permintaan untuk mereset password akun Guru SIPORA-mu.\n'
+            f'Klik link berikut untuk membuat password baru (berlaku 1 jam):\n\n'
+            f'{reset_link}\n\n'
+            f'Jika kamu tidak meminta reset password, abaikan email ini.\n\n'
+            f'Salam,\nTim SIPORA SMP Desa Putera'
+        )
+
+        html_message = f'''<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {{ font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #F9FAFB; margin: 0; padding: 0; }}
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#F9FAFB;font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:572px;background:#ffffff;border-radius:16px;border:1px solid #D9D9D9;box-shadow:0px 0px 10px 0px rgba(159, 160, 206, 0.50);overflow:hidden;">
+        <tr><td style="background-color:#2E3094;padding:24px 48px;text-align:center;border-bottom:1px solid #D9D9D9;">
+          <h2 style="margin:0;font-size:24px;font-weight:800;color:#ffffff;line-height:32px;text-align:center;">Reset Password</h2>
+        </td></tr>
+        <tr><td style="padding:32px;text-align:center;">
+          <p style="margin:0 0 24px;font-size:16px;color:#333333;font-weight:600;line-height:24px;text-align:center;">
+            Halo {user.nama_lengkap},<br><br>
+            Kami menerima permintaan untuk mereset password akun Guru SIPORA-mu. Klik tombol di bawah untuk membuat password baru:
+          </p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center" style="padding:8px 0 32px;text-align:center;">
+              <a href="{reset_link}" target="_blank" style="display:inline-block;padding:16px 20px;background-color:#2E3094;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;min-width:200px;text-align:center;">
+                Reset Password Sekarang
+              </a>
+            </td></tr>
+          </table>
+          <div style="padding:10px 16px;background-color:#FFF8E1;border:1px solid #F59E0B;border-radius:12px;margin-bottom:24px;display:inline-block;text-align:center;">
+             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr>
+                <td width="20" valign="middle" style="padding-right:8px;text-align:center;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </td>
+                <td style="font-size:13px;color:#F59E0B;line-height:1.5;font-weight:600;text-align:center;">
+                  Link ini berlaku selama <strong>1 jam</strong>. Setelah itu, kamu perlu meminta link baru.
+                </td>
+              </tr>
+            </table>
+          </div>
+           <div style="text-align:center;">
+            <p style="margin:0 0 8px;font-size:13px;color:#6B7280;font-weight:500;text-align:center;">Tombol tidak berfungsi? Salin link ini ke browser:</p>
+            <p style="margin:0;font-size:12px;color:#2E3094;word-break:break-all;line-height:1.5;text-align:center;">{reset_link}</p>
+          </div>
+        </td></tr>
+        <tr><td style="padding:24px 32px;border-top:1px solid #D9D9D9;background-color:#F9FAFB;text-align:center;">
+          <p style="margin:0 0 12px;font-size:12px;color:#6B7280;line-height:1.5;text-align:center;">
+            Jika kamu tidak meminta reset password, abaikan email ini. Akunmu tetap aman.
+          </p>
+          <p style="margin:0;font-size:12px;color:#9CA3AF;font-weight:600;text-align:center;">
+            &copy; 2026 SIPORA &mdash; SMP Desa Putera
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>'''
+
+        def send_email_thread():
+            try:
+                send_mail(
+                    subject='[SIPORA] Reset Password Akun Guru',
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+            except Exception as e:
+                import traceback
+                print(f"Email Dispatch Error: {str(e)}")
+                traceback.print_exc()
+
+        threading.Thread(target=send_email_thread).start()
+
+        return mask_email(user.email)
+
 
 class ResetPasswordSerializer(serializers.Serializer):
     """
@@ -799,4 +917,4 @@ class ResetPasswordSerializer(serializers.Serializer):
     def save(self):
         self.user.set_password(self.validated_data['password'])
         self.user.save()
-        return self.user
+        return self.user
