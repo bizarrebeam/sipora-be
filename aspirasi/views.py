@@ -383,7 +383,7 @@ class EditAspirasiView(APIView):
 
         # perubahan hanya dapat dilakukan sebelum 7 hari 
         if timezone.now() - aspirasi.tanggal_aspirasi > timedelta(days=7):
-            return Response({"status": "error", "message": "Waktu edit laporan sudah habis (lebih dari 2 menit)", "data": None}, status=403)
+            return Response({"status": "error", "message": "Waktu edit laporan sudah habis (lebih dari 7 hari)", "data": None}, status=403)
 
         # Update  fields if present
         judul = request.data.get('judul')
