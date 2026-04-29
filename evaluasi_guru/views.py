@@ -9,6 +9,8 @@ from .serializers import IndikatorSerializer, GuruSimpleSerializer, sanitize_tex
 from log_aktivitas.utils import catat_log
 from akun.models import MataPelajaranGuruSemester
 import json
+from collections import defaultdict
+from rest_framework.pagination import PageNumberPagination
 
 User = get_user_model()
 
@@ -233,3 +235,130 @@ class GuruListView(APIView):
 
         serializer = GuruSimpleSerializer(gurus, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DaftarHasilEvaluasiPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class DaftarHasilEvaluasiView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if user.role not in ["kemahasiswaan", "guru"]:
+            return Response(
+                {"detail": "Menu tidak tersedia"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        guru_name = request.query_params.get("guru", "")
+        tahun_ajaran = request.query_params.get("tahun_ajaran", "")
+        semester = request.query_params.get("semester", "")
+
+        queryset = Evaluasi.objects.all()
+
+        if user.role == "guru":
+            queryset = queryset.filter(guru=user)
+        elif guru_name:
+            queryset = queryset.filter(guru__nama_lengkap__icontains=guru_name)
+
+        if tahun_ajaran:
+            queryset = queryset.filter(tahun_ajaran=tahun_ajaran)
+
+        if semester:
+            queryset = queryset.filter(semester__iexact=semester)
+
+        if not queryset.exists():
+            return Response([], status=status.HTTP_200_OK)
+
+        queryset = queryset.select_related('guru', 'siswa').prefetch_related('nilai__indikator__kategori')
+
+        grouped_data = {}
+
+        for ev in queryset:
+            key = (ev.guru.id, ev.tahun_ajaran, ev.semester)
+            if key not in grouped_data:
+                grouped_data[key] = {
+                    "guru_id": ev.guru.id,
+                    "guru_nama": ev.guru.nama_lengkap,
+                    "tahun_ajaran": ev.tahun_ajaran,
+                    "semester": ev.semester,
+                    "total_responden": 0,
+                    "komentar": [],
+                    "kategori_scores": defaultdict(lambda: {"scores": [], "indikator_scores": defaultdict(list)}),
+                    "all_scores": []
+                }
+            
+            group = grouped_data[key]
+            group["total_responden"] += 1
+            
+            if ev.komentar and str(ev.komentar).strip():
+                kelas_siswa = ev.siswa.kelas if ev.siswa and getattr(ev.siswa, 'kelas', None) else "Tidak diketahui"
+                group["komentar"].append({
+                    "kelas": kelas_siswa,
+                    "komentar": ev.komentar
+                })
+                
+            for nilai_ev in ev.nilai.all():
+                kategori = nilai_ev.indikator.kategori
+                kat_id = kategori.id
+                kat_nama = kategori.nama
+                
+                ind_id = nilai_ev.indikator.id
+                ind_deskripsi = nilai_ev.indikator.deskripsi
+                
+                score = nilai_ev.nilai
+                
+                group["kategori_scores"][(kat_id, kat_nama)]["scores"].append(score)
+                group["kategori_scores"][(kat_id, kat_nama)]["indikator_scores"][(ind_id, ind_deskripsi)].append(score)
+                group["all_scores"].append(score)
+
+        results = []
+        for key, data in grouped_data.items():
+            overall_avg = sum(data["all_scores"]) / len(data["all_scores"]) if data["all_scores"] else 0
+            overall_avg = round(overall_avg, 2)
+            
+            detail_kategori = []
+            for (kat_id, kat_nama), kat_data in data["kategori_scores"].items():
+                kat_avg = sum(kat_data["scores"]) / len(kat_data["scores"]) if kat_data["scores"] else 0
+                
+                detail_indikator = []
+                for (ind_id, ind_deskripsi), ind_scores in kat_data["indikator_scores"].items():
+                    ind_avg = sum(ind_scores) / len(ind_scores) if ind_scores else 0
+                    detail_indikator.append({
+                        "indikator_id": ind_id,
+                        "deskripsi": ind_deskripsi,
+                        "rata_rata": round(ind_avg, 2)
+                    })
+                
+                detail_indikator.sort(key=lambda x: x["indikator_id"])
+                
+                detail_kategori.append({
+                    "kategori_id": kat_id,
+                    "kategori_nama": kat_nama,
+                    "rata_rata": round(kat_avg, 2),
+                    "detail_indikator": detail_indikator
+                })
+            
+            detail_kategori.sort(key=lambda x: x["kategori_id"])
+
+            results.append({
+                "guru_id": data["guru_id"],
+                "guru_nama": data["guru_nama"],
+                "tahun_ajaran": data["tahun_ajaran"],
+                "semester": data["semester"],
+                "rata_rata_rating": overall_avg,
+                "total_responden": data["total_responden"],
+                "detail_kategori": detail_kategori,
+                "komentar": data["komentar"]
+            })
+
+        results.sort(key=lambda x: (x["guru_nama"], x["tahun_ajaran"], x["semester"]), reverse=True)
+
+        paginator = DaftarHasilEvaluasiPagination()
+        paginated_results = paginator.paginate_queryset(results, request, view=self)
+        
+        return paginator.get_paginated_response(paginated_results)

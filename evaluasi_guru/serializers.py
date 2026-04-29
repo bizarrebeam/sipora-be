@@ -75,3 +75,8 @@ class GuruSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'nama_lengkap']
+
+class EvaluasiSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Evaluasi
+        fields = ['id', 'siswa', 'staff', 'nilai', 'komentar', 'tanggal']
