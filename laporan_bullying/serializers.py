@@ -140,7 +140,6 @@ class RiwayatStatusBullyingSerializer(serializers.ModelSerializer):
         if obj.diubah_oleh:
             if obj.laporan.anonimitas and obj.diubah_oleh == obj.laporan.pelapor:
                 return {
-                    'id': obj.diubah_oleh.id,
                     'nama_lengkap': 'Pengguna Anonim',
                     'role': None
                 }
@@ -283,7 +282,7 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
     Nests related serializers (evidence photos and status history) and fetches
     complete user and report details, taking anonymity flags into account.
     """
-    pelapor = serializers.UUIDField(source='pelapor.id', read_only=True)
+    pelapor = serializers.SerializerMethodField()
     foto_bukti = FotoBuktiBullyingSerializer(many=True, read_only=True)
     nama_pengirim = serializers.SerializerMethodField()
     akun_terverifikasi = serializers.BooleanField(source='pelapor.is_verified', read_only=True)
@@ -318,6 +317,14 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
         Retrieves the formatted sender name honoring anonymity rules.
         """
         return obj.get_nama_pelapor()
+
+    def get_pelapor(self, obj):
+        """
+        Retrieves the reporter's UUID, masking it if the report is anonymous.
+        """
+        if obj.anonimitas:
+            return None
+        return str(obj.pelapor.id) if obj.pelapor else None
 
     def get_kelas(self, obj):
         """
