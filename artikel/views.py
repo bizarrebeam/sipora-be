@@ -142,3 +142,21 @@ class ArtikelDetailUpdateView(APIView):
             "message": "Validasi gagal",
             "data": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    @role_required(['kemahasiswaan'])
+    def delete(self, request, id):
+        """
+        Delete an article (hard delete). Only accessible by users with the 'kemahasiswaan' role.
+        """
+        artikel = get_object_or_404(Artikel, pk=id)
+        judul = artikel.judul
+        artikel.delete()
+        catat_log(
+            user=request.user,
+            aksi="MENGHAPUS_ARTIKEL",
+            deskripsi=f"Menghapus artikel {judul}",
+            modul="Artikel"
+        )
+        return Response({
+            "message": "Artikel berhasil dihapus"
+        }, status=status.HTTP_200_OK)
