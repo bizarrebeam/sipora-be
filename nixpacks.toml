@@ -1,0 +1,17 @@
+# Railway Nixpacks configuration
+# WeasyPrint requires native system libraries for PDF generation
+# "..." preserves the default Nixpacks packages (Python, pip, etc.)
+
+[phases.setup]
+nixPkgs = [
+    "...",
+    "cairo",
+    "pango",
+    "glib",
+    "harfbuzz",
+    "fontconfig",
+    "gdk-pixbuf",
+    "shared-mime-info",
+    "freetype",
+    "noto-fonts",
+]
