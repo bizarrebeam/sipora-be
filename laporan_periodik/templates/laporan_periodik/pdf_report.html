@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Periodik</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ─── Page Setup for PDF ─────────────────────────────────────────────── */
+        @page {
+            size: A4;
+            margin: 1cm;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            background: white;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .page {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 1.5cm;
+            background: white;
+            page-break-after: avoid;
+        }
+
+        /* ─── Header / Kop Surat ───────────────────────────────────────────── */
+        .header {
+            width: 100%;
+            position: relative;
+            padding-bottom: 14px;
+        }
+
+        .header-content {
+            width: 100%;
+            text-align: center;
+            position: relative;
+        }
+
+        .logo {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 75px;
+            height: 75px;
+        }
+
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .school-info {
+            width: 100%;
+            text-align: center;
+            line-height: 1.35;
+        }
+
+        .yayasan-name {
+            font-size: 12pt;
+            letter-spacing: 0.5px;
+        }
+
+        .unit-text {
+            font-size: 10pt;
+            margin-top: 2px;
+        }
+
+        .school-name {
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 2px 0;
+        }
+
+        .detail-info {
+            font-size: 10pt;
+            margin-top: 6px;
+        }
+
+        .contact-info {
+            font-size: 9pt;
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+
+        .header-line {
+            width: 100%;
+            border-bottom: 3px solid black;
+            margin-top: 14px;
+        }
+
+        /* ─── Title ──────────────────────────────────────────────────────────── */
+        .report-title {
+            text-align: center;
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 1cm 0 0.5cm 0;
+            text-decoration: underline;
+        }
+
+        .report-period {
+            text-align: center;
+            font-size: 11pt;
+            margin-bottom: 1cm;
+            color: #555;
+        }
+
+        /* ─── Statistics Summary ─────────────────────────────────────────────── */
+        .summary-section {
+            margin-bottom: 1.2cm;
+            padding: 0.8cm;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .summary-title {
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 0.5cm;
+            text-decoration: underline;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5cm;
+        }
+
+        .summary-item {
+            padding: 0.4cm;
+            background: white;
+            border: 1px solid #ddd;
+            text-align: center;
+            border-radius: 3px;
+        }
+
+        .summary-number {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1e40af;
+        }
+
+        .summary-label {
+            font-size: 9pt;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* ─── Table ──────────────────────────────────────────────────────────── */
+        .reports-section {
+            margin-bottom: 1cm;
+        }
+
+        .reports-title {
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 0.5cm;
+            text-decoration: underline;
+        }
+
+        .reports-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+            margin-bottom: 0.5cm;
+        }
+
+        .reports-table thead {
+            background-color: #1e40af;
+            color: white;
+        }
+
+        .reports-table th {
+            padding: 0.4cm;
+            text-align: left;
+            border: 1px solid #ccc;
+            font-weight: bold;
+        }
+
+        .reports-table td {
+            padding: 0.35cm;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .reports-table tbody tr:nth-child(even) {
+            background-color: #f5f5f5;
+        }
+
+        .reports-table tbody tr:hover {
+            background-color: #e8e8ff;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 1cm;
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            color: #856404;
+            font-weight: 500;
+        }
+
+        /* ─── Footer ─────────────────────────────────────────────────────────── */
+        .footer {
+            margin-top: 1cm;
+            text-align: right;
+            font-size: 9pt;
+        }
+
+        .footer-date {
+            margin-bottom: 0.5cm;
+        }
+
+        .signature-space {
+            margin-top: 1cm;
+            text-align: center;
+        }
+
+        /* ─── Print Styles ───────────────────────────────────────────────────── */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .page {
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+                width: 100%;
+            }
+
+            img {
+                max-width: 100%;
+            }
+        }
+
+        /* ─── Utilities ──────────────────────────────────────────────────────── */
+        .text-center {
+            text-align: center;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .mt { margin-top: 0.5cm; }
+        .mb { margin-bottom: 0.5cm; }
+        .p { padding: 0.5cm; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- ─── Header / Kop Surat ──────────────────────────────────────────── -->
+        <div class="header">
+            <div class="header-content">
+                {% if logo_path %}
+                <div class="logo">
+                    <img src="file://{{ logo_path }}" alt="Logo Sekolah" />
+                </div>
+                {% endif %}
+
+                <div class="school-info">
+                    <div class="yayasan-name">YAYASAN BUDI MULIA LOURDES</div>
+                    <div class="unit-text">Unit</div>
+                    <div class="school-name">SMP DESA PUTERA</div>
+
+                    <div class="detail-info">
+                        STATUS : TERAKREDITASI "A"<br>
+                        NPSN : 20106947 &nbsp;&nbsp;&nbsp; NPYP : AH9883
+                    </div>
+
+                    <div class="contact-info">
+                        Jalan Desa Putera, Srengseng Sawah, Jagakarsa, Jakarta Selatan - 12640 Telp. (021)-7867202<br>
+                        e-mail : [REDACTED EMAIL] website : https://www.smpdesaputera.com <br>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-line"></div>
+        </div>
+
+        <!-- ─── Title ─────────────────────────────────────────────────────── -->
+        <div class="report-title">LAPORAN PERIODIK</div>
+        <div class="report-period">
+            Periode: {{ start_date_formatted }} - {{ end_date_formatted }}
+        </div>
+
+        <!-- ─── Statistics Summary ─────────────────────────────────────────── -->
+        <div class="summary-section">
+            <div class="summary-title">Ringkasan Statistik</div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.total_reports }}</div>
+                    <div class="summary-label">Total Laporan</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.bullying_count }}</div>
+                    <div class="summary-label">Laporan Bullying</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.kerusakan_count }}</div>
+                    <div class="summary-label">Laporan Kerusakan</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Reports Table ─────────────────────────────────────────────── -->
+        <div class="reports-section">
+            <div class="reports-title">Rincian Laporan</div>
+            
+            {% if has_reports %}
+            <table class="reports-table">
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">No. Laporan</th>
+                        <th style="width: 25%;">Judul</th>
+                        <th style="width: 18%;">Kategori</th>
+                        <th style="width: 20%;">Tanggal</th>
+                        <th style="width: 15%;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td class="text-left">{{ report.no_laporan }}</td>
+                        <td class="text-left">{{ report.judul }}</td>
+                        <td class="text-left">{{ report.kategori }}</td>
+                        <td class="text-left">
+                            {% with report.tanggal|date:"d M Y H:i" as formatted_date %}
+                            {{ formatted_date }}
+                            {% endwith %}
+                        </td>
+                        <td class="text-center">
+                            {% if report.status == 'menunggu' %}
+                                Menunggu
+
+                            {% elif report.status == 'menunggu_konfirmasi_selesai' %}
+                                Menunggu Konfirmasi Selesai
+
+                            {% elif report.status == 'diproses' %}
+                                Diproses
+
+                            {% elif report.status == 'selesai' %}
+                                Selesai
+
+                            {% elif report.status == 'ditolak' %}
+                                Ditolak
+
+                            {% elif report.status == 'ditandai' %}
+                                Ditandai
+
+                            {% else %}
+                                {{ report.status|title }}
+
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-data">Tidak ada data laporan</div>
+            {% endif %}
+        </div>
+
+        <!-- ─── Footer ────────────────────────────────────────────────────── -->
+        <div class="footer">
+            <div class="footer-date">
+                Jakarta, {{ current_date }}
+            </div>
+            <div class="signature-space">
+                <p>Staff Kemahasiswaan</p>
+                <div style="height: 2cm;"></div>
+                <p>_____________________</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

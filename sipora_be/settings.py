@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'artikel',
     'evaluasi_guru',
     'konsultasi',
-    'dashboard'
+    'dashboard',
+    'laporan_periodik'
 ]
 
 AUTH_USER_MODEL = 'akun.Pengguna'
