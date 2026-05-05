@@ -1,8 +1,4 @@
-# Railway Nixpacks configuration for propenat-backend (Django + WeasyPrint)
-# WeasyPrint requires native system libraries for PDF generation
-
 [phases.setup]
-# Preserve default packages, then add libs for WeasyPrint: cairo stack, fonts, & FFI
 nixPkgs = [
     "...",
     # Core Cairo graphics stack (REQUIRED by WeasyPrint)
@@ -27,12 +23,23 @@ nixPkgs = [
     "pkg-config",
 ]
 
+nixLibs = [
+    "cairo",
+    "pango",
+    "glib",
+    "harfbuzz",
+    "fontconfig",
+    "freetype",
+    "libffi",
+    "gdk-pixbuf",
+    "gobject-introspection",
+]
+
 [phases.build]
 cmds = [
     "pip install --upgrade pip setuptools wheel",
     "pip install -r requirements.txt",
 ]
 
-# Start command for Railway/production
 [start]
-cmd = "gunicorn --bind 0.0.0.0:8000 --workers 2 sipora_be.wsgi:application"
+cmd = "echo '--- LD_LIBRARY_PATH ---' && echo $LD_LIBRARY_PATH && echo '--- libgobject check ---' && find /nix/store -name 'libgobject-2.0.so*' 2>/dev/null | head -5 && echo '--- WeasyPrint info ---' && python -m weasyprint --info 2>&1 | head -20 && echo '--- Starting gunicorn ---' && gunicorn --bind 0.0.0.0:8000 --workers 2 sipora_be.wsgi:application"
