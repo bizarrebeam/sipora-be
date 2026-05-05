@@ -132,7 +132,7 @@ class LaporanPeriodikView(APIView):
                 'id': str(report['id']),
                 'judul': report['judul'],
                 'tanggal': report['tanggal_laporan'],
-                'kategori': f"Bullying - {report['jenis_bullying']}",
+                'kategori': f"Bullying {report['jenis_bullying']}",
                 'status': report['status'],
                 'no_laporan': report['no_laporan'],
                 'tipe_laporan': 'bullying',
