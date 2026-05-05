@@ -1,45 +1,14 @@
 [phases.setup]
 nixPkgs = [
-    "...",
-    # Core Cairo graphics stack (REQUIRED by WeasyPrint)
-    "cairo",
-    "pango", 
-    "glib",
-    "gobject-introspection",
-    "gdk-pixbuf",
-    
-    # Supporting libraries
-    "harfbuzz",
-    "fontconfig",
-    "freetype",
-    "libffi",
-    
-    # Fonts
-    "noto-fonts",
-    "liberation_ttf",
-    
-    # utilities
-    "shared-mime-info",
-    "pkg-config",
-]
-
-nixLibs = [
-    "cairo",
-    "pango",
-    "glib",
-    "harfbuzz",
-    "fontconfig",
-    "freetype",
-    "libffi",
-    "gdk-pixbuf",
-    "gobject-introspection",
+  "libffi",
+  "shared-mime-types"
 ]
 
 [phases.build]
 cmds = [
-    "pip install --upgrade pip setuptools wheel",
-    "pip install -r requirements.txt",
+  "pip install --upgrade pip setuptools wheel",
+  "pip install -r requirements.txt"
 ]
 
 [start]
-cmd = "echo '--- LD_LIBRARY_PATH ---' && echo $LD_LIBRARY_PATH && echo '--- libgobject check ---' && find /nix/store -name 'libgobject-2.0.so*' 2>/dev/null | head -5 && echo '--- WeasyPrint info ---' && python -m weasyprint --info 2>&1 | head -20 && echo '--- Starting gunicorn ---' && gunicorn --bind 0.0.0.0:8000 --workers 2 sipora_be.wsgi:application"
+cmd = "gunicorn --bind 0.0.0.0:8000 --workers 2 sipora_be.wsgi:application"
