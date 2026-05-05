@@ -7,10 +7,7 @@ nixPkgs = [
 cmds = [
   "pip install --upgrade pip setuptools wheel",
   "pip install -r requirements.txt"
-  "pip install --upgrade pip setuptools wheel",
-  "pip install -r requirements.txt"
 ]
 
 [start]
-cmd = "gunicorn --bind 0.0.0.0:8000 --workers 2 sipora_be.wsgi:application"
 cmd = "gunicorn --bind 0.0.0.0:8000 --workers 2 sipora_be.wsgi:application"
