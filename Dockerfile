@@ -1,11 +1,8 @@
 FROM python:3.12-slim-bookworm
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install WeasyPrint system dependencies (straight from their official docs)
-# We use Bookworm to ensure stable package names that match standard Debian repos
 RUN apt-get update && apt-get install -y \
     build-essential \
     python3-dev \
@@ -25,13 +22,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install Python packages
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
 COPY . .
 
-# Run the Django app using gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "sipora_be.wsgi:application"]
+RUN SECRET_KEY=dummy python manage.py collectstatic --noinput
+
+CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 sipora_be.wsgi:application
