@@ -1,10 +1,11 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install WeasyPrint system dependencies (straight from their official docs)
+# We use Bookworm to ensure stable package names that match standard Debian repos
 RUN apt-get update && apt-get install -y \
     build-essential \
     python3-dev \
@@ -16,8 +17,7 @@ RUN apt-get update && apt-get install -y \
     libopenjp2-7-dev \
     libffi-dev \
     libcairo2 \
-    libpango-1.0-0 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     shared-mime-info \
     fonts-liberation \
     fonts-noto \
