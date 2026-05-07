@@ -12,6 +12,13 @@ import json
 from collections import defaultdict
 from rest_framework.pagination import PageNumberPagination
 
+class TahunAjaranListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tahun_ajaran_list = Evaluasi.objects.values_list('tahun_ajaran', flat=True).distinct().order_by('-tahun_ajaran')
+        return Response(tahun_ajaran_list, status=status.HTTP_200_OK)
+
 User = get_user_model()
 
 class EvaluasiCreateView(APIView):
@@ -230,6 +237,16 @@ class GuruListView(APIView):
                         kd = []
                 if isinstance(kd, list) and user.kelas in kd:
                     valid_guru_ids.append(r.guru_id)
+            
+            # Exclude gurus that the student has already evaluated this semester
+            from .models import Evaluasi
+            evaluated_guru_ids = Evaluasi.objects.filter(
+                siswa=user,
+                tahun_ajaran=ta,
+                semester=sem
+            ).values_list('guru_id', flat=True)
+            
+            valid_guru_ids = [gid for gid in valid_guru_ids if gid not in evaluated_guru_ids]
             
             gurus = gurus.filter(id__in=valid_guru_ids)
 
