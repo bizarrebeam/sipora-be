@@ -12,9 +12,9 @@ from rest_framework import status
 from django.utils.dateparse import parse_date
 from django.http import FileResponse, HttpResponse
 from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, date
 import logging
+from urllib.parse import quote
 
 from laporan_bullying.models import LaporanBullying
 from laporan_kerusakan.models import LaporanKerusakan
@@ -182,7 +182,6 @@ class LaporanPeriodikView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@csrf_exempt
 def laporan_periodik_export(request):
     """
     Function-based view for exporting aggregated periodic reports as PDF.
@@ -357,7 +356,9 @@ def laporan_periodik_export(request):
 
         # Return PDF directly as HttpResponse (bypassing DRF)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        # Use RFC 5987 encoding for proper Unicode filename support
+        encoded_filename = quote(filename, safe='')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
         response['Access-Control-Allow-Origin'] = '*'
         return response
 
