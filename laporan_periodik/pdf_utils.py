@@ -69,11 +69,31 @@ def generate_pdf_filename(start_date: datetime, end_date: datetime) -> str:
         
     Returns:
         Filename in format: Laporan_Bulanan_[Bulan]_[Tahun].pdf
+        For multi-month reports: Laporan_Bulanan_[BulanAwal]-[BulanAkhir]_[Tahun].pdf
     """
-    month_name = get_month_name_indonesian(start_date.month)
-    year = start_date.year
+    # Ensure we have valid month values (1-12)
+    start_month = max(1, min(12, getattr(start_date, 'month', 1)))
+    end_month = max(1, min(12, getattr(end_date, 'month', 1)))
+    year = getattr(start_date, 'year', 2026)
     
-    return f"Laporan_Bulanan_{month_name}_{year}.pdf"
+    start_month_name = get_month_name_indonesian(start_month)
+    
+    # If same month, use single month format
+    if start_month == end_month:
+        month_name = start_month_name or f"Bulan{start_month}"  # Fallback if translation missing
+        return f"Laporan_Bulanan_{month_name}_{year}.pdf"
+    
+    # If different months, show range
+    end_month_name = get_month_name_indonesian(end_month)
+    end_month_name = end_month_name or f"Bulan{end_month}"  # Fallback if translation missing
+    start_month_name = start_month_name or f"Bulan{start_month}"  # Fallback if translation missing
+    
+    # If spanning different years, include year in month names
+    end_year = getattr(end_date, 'year', 2026)
+    if year != end_year:
+        return f"Laporan_Bulanan_{start_month_name}_{year}-{end_month_name}_{end_year}.pdf"
+    
+    return f"Laporan_Bulanan_{start_month_name}-{end_month_name}_{year}.pdf"
 
 
 def format_status(status: str) -> str:
