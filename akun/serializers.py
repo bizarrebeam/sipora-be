@@ -311,6 +311,7 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
                 )
         return data
 
+    
     def update(self, instance, validated_data):
         riwayat_data = validated_data.pop('riwayat_mengajar', None)
         
