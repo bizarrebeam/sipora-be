@@ -15,6 +15,7 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, date
 import logging
+from urllib.parse import quote
 
 from laporan_bullying.models import LaporanBullying
 from laporan_kerusakan.models import LaporanKerusakan
@@ -357,7 +358,9 @@ def laporan_periodik_export(request):
 
         # Return PDF directly as HttpResponse (bypassing DRF)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        # Use RFC 5987 encoding for proper Unicode filename support
+        encoded_filename = quote(filename, safe='')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
         response['Access-Control-Allow-Origin'] = '*'
         return response
 
