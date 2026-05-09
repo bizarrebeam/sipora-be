@@ -25,5 +25,5 @@ class TimingMiddleware:
         response = self.get_response(request)
         duration = time.perf_counter() - start
         ms = duration * 1000
-        print(f"[TIMING] {request.method} {request.path} -> {response.status_code} ({ms:.0f}ms)")
+        logger.debug(f"[TIMING] {request.method} {request.path} -> {response.status_code} ({ms:.0f}ms)")
         return response

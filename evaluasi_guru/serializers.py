@@ -1,7 +1,7 @@
 from rest_framework import serializers
+from core.utils import sanitize_text
 from .models import Evaluasi, NilaiEvaluasi, Indikator
 from django.contrib.auth import get_user_model
-import re
 
 User = get_user_model()
 
@@ -24,18 +24,6 @@ class NilaiEvaluasiSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"Indikator dengan ID {value} tidak valid.")
         return value
 
-def sanitize_text(value):
-    """
-    Sanitize user input to prevent XSS and other injection attacks by 
-    removing HTML tags and potentially dangerous characters from a string.
-    """
-    if not value:
-        return value
-    # Delete HTML elements
-    value = re.sub(r'<.*?>', '', value)
-    # Delete dangerous characters
-    value = re.sub(r'[<>"\'%;()&+]', '', value)
-    return value.strip()
 
 class EvaluasiCreateSerializer(serializers.Serializer):
     staff_id = serializers.UUIDField(

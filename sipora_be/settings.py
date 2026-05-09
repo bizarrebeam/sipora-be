@@ -12,7 +12,6 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Dynamically load the contiguous .env file natively if not operating within the Railway production container.
 if not os.getenv('RAILWAY_STATIC_URL'):
     load_dotenv(os.path.join(BASE_DIR, '.env'), override=False)
 

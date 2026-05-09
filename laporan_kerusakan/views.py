@@ -22,46 +22,7 @@ from .serializers import (
     UpdateStatusLaporanKerusakanSerializer
 )
 from log_aktivitas.utils import catat_log
-
-
-STATUS_LABELS = {
-    'menunggu': 'Menunggu Konfirmasi',
-    'diproses': 'Diproses',
-    'menunggu_konfirmasi_selesai': 'Menunggu Konfirmasi Selesai',
-    'selesai': 'Selesai',
-    'ditolak': 'Ditolak',
-    'dibatalkan': 'Dibatalkan',
-}
-
-
-def build_status_change_catatan(status_current, status_new, reason='', note=''):
-    """Return a consistent history note for status transitions."""
-
-    reason = (reason or '').strip()
-    note = (note or '').strip()
-
-    if status_new == 'ditolak' and reason:
-        return f"Status diperbarui ke {STATUS_LABELS['ditolak']}. Alasan: {reason}"
-
-    if status_new == 'menunggu_konfirmasi_selesai':
-        return (
-            f"Status diperbarui ke {STATUS_LABELS['menunggu_konfirmasi_selesai']}. "
-            f"Catatan tindak lanjut: {note}"
-        )
-
-    if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'selesai':
-        if note:
-            return f"Pelapor mengonfirmasi laporan selesai. Catatan: {note}"
-        return 'Pelapor mengonfirmasi laporan selesai'
-
-    if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'diproses':
-        return 'Pelapor menyatakan laporan belum selesai dan dikembalikan ke Diproses'
-
-    if note:
-        return f"Status diperbarui ke {STATUS_LABELS.get(status_new, status_new)}. Catatan: {note}"
-
-    return None
-
+from core.utils import STATUS_LABELS, build_status_change_catatan
 
 class CreateLaporanKerusakanView(APIView):
     """API view for creating a new facility damage report."""

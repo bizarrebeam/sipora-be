@@ -17,6 +17,11 @@ from django.conf import settings
 import threading
 import re
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 # ─── Public Registration ────────────────────────────────────────────────────────
 
@@ -751,7 +756,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
                 )
             except Exception as e:
                 import traceback
-                print(f"Email Dispatch Error: {str(e)}")
+                logger.error(f"Email Dispatch Error: {str(e)}")
                 traceback.print_exc()
 
         threading.Thread(target=send_email_thread).start()
@@ -870,7 +875,7 @@ class ForgotPasswordGuruSerializer(serializers.Serializer):
                 )
             except Exception as e:
                 import traceback
-                print(f"Email Dispatch Error: {str(e)}")
+                logger.error(f"Email Dispatch Error: {str(e)}")
                 traceback.print_exc()
 
         threading.Thread(target=send_email_thread).start()

@@ -5,7 +5,7 @@ This module contains the database schema definitions for bullying reports,
 including the main report data, uploaded evidence photos, and the status history.
 """
 
-from django.db import models
+from django.db import models, transaction
 import uuid
 from django.conf import settings
 from django.utils import timezone
@@ -110,20 +110,22 @@ class LaporanBullying(models.Model):
         
         The format follows 'LB-<YEAR>-<SEQUENCE>', starting sequentially from '0001' 
         for each given year. The sequence resets every new year.
+        Uses select_for_update() to prevent race conditions.
         """
         if not self.no_laporan:
-            year = timezone.now().year
-            last_laporan = LaporanBullying.objects.filter(
-                no_laporan__startswith=f"LB-{year}-"
-            ).order_by('-no_laporan').first()
+            with transaction.atomic():
+                year = timezone.now().year
+                last_laporan = LaporanBullying.objects.filter(
+                    no_laporan__startswith=f"LB-{year}-"
+                ).select_for_update().order_by('-no_laporan').first()
 
-            if last_laporan:
-                last_number = int(last_laporan.no_laporan.split('-')[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
+                if last_laporan:
+                    last_number = int(last_laporan.no_laporan.split('-')[-1])
+                    new_number = last_number + 1
+                else:
+                    new_number = 1
 
-            self.no_laporan = f"LB-{year}-{str(new_number).zfill(4)}"
+                self.no_laporan = f"LB-{year}-{str(new_number).zfill(4)}"
 
         super().save(*args, **kwargs)
 

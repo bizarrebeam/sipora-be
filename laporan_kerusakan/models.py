@@ -6,7 +6,7 @@ supporting photos, and status history records.
 """
 
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.utils import timezone
 
@@ -72,20 +72,22 @@ class LaporanKerusakan(models.Model):
         Auto-generate a yearly sequential report number.
 
         Format: LK-<YEAR>-<SEQUENCE>.
+        Uses select_for_update() to prevent race conditions.
         """
         if not self.no_laporan:
-            year = timezone.now().year
-            last_laporan = LaporanKerusakan.objects.filter(
-                no_laporan__startswith=f"LK-{year}-"
-            ).order_by('-no_laporan').first()
-            
-            if last_laporan:
-                last_number = int(last_laporan.no_laporan.split('-')[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
-            
-            self.no_laporan = f"LK-{year}-{str(new_number).zfill(4)}"
+            with transaction.atomic():
+                year = timezone.now().year
+                last_laporan = LaporanKerusakan.objects.filter(
+                    no_laporan__startswith=f"LK-{year}-"
+                ).select_for_update().order_by('-no_laporan').first()
+                
+                if last_laporan:
+                    last_number = int(last_laporan.no_laporan.split('-')[-1])
+                    new_number = last_number + 1
+                else:
+                    new_number = 1
+                
+                self.no_laporan = f"LK-{year}-{str(new_number).zfill(4)}"
         
         super().save(*args, **kwargs)
 

@@ -6,6 +6,7 @@ authentication, profile management, and role-based administration routes.
 """
 
 from django.urls import path
+from django.conf import settings
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegisterSiswaView,
@@ -29,7 +30,6 @@ from .views import (
 
 urlpatterns = [
     # General Authentication & Base Endpoints
-    path('seed/', SeedDatabaseView.as_view(), name='database-seed'),
     path('register/', RegisterSiswaView.as_view(), name='register-siswa'),
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
@@ -53,3 +53,8 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
     path('token/refresh/', CookieTokenRefreshView.as_view(), name='token-refresh'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += [
+        path('seed/', SeedDatabaseView.as_view(), name='database-seed'),
+    ]

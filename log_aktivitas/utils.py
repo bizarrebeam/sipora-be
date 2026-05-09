@@ -1,4 +1,9 @@
 """
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 Core Utility Functions for Activity Logging.
 
 This module exposes the primary, decoupled procedural functions for writing to the audit ledger
@@ -30,4 +35,4 @@ def catat_log(user, aksi, deskripsi, modul, ip_address=None):
         )
     except Exception as e:
         # Prevents systemic failure if the logging persistence layer encounters an error
-        print(f"Log Audit failed to save for {aksi}: {str(e)}")
+        logger.error(f"Log Audit failed to save for {aksi}: {str(e)}")

@@ -2,6 +2,11 @@ import os
 import requests
 from django.core.mail.backends.base import BaseEmailBackend
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class VercelProxyEmailBackend(BaseEmailBackend):
     """
     A custom email backend that proxies email requests to a Serverless Function.
@@ -46,11 +51,11 @@ class VercelProxyEmailBackend(BaseEmailBackend):
                 if response.status_code == 200:
                     sent_counter += 1
                 else:
-                    print(f"[Vercel Proxy Error {response.status_code}]:", response.text)
+                    logger.error(f"[Vercel Proxy Error {response.status_code}]: {response.text}")
                     if not self.fail_silently:
                         response.raise_for_status()
             except Exception as e:
-                print(f"[Email Proxy Exception]: Failed to contact {vercel_url} -> {e}")
+                logger.error(f"[Email Proxy Exception]: Failed to contact {vercel_url} -> {e}")
                 if not self.fail_silently:
                     raise e
                     

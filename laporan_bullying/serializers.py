@@ -9,30 +9,11 @@ photos, and status histories.
 from rest_framework import serializers
 from datetime import datetime, date
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
-import re
 
-# Validation constants
-MIN_REJECTION_REASON_LENGTH = 50
-MIN_STATUS_NOTE_LENGTH = 50
+from core.utils import sanitize_text, MIN_REJECTION_REASON_LENGTH, MIN_STATUS_NOTE_LENGTH
+
 MIN_BULLYING_NOTE_LENGTH = 10
 
-def sanitize_text(value):
-    """
-    Sanitize user input to prevent XSS and other injection attacks by 
-    removing HTML tags and potentially dangerous characters from a string.
-    
-    Args:
-        value (str): The raw text string inputted by the user.
-        
-    Returns:
-        str: The sanitized text string.
-    """
-    # Delete script tags and HTML elements
-    value = re.sub(r'<.*?>', '', value)
-    # Delete dangerous characters
-    value = re.sub(r'[<>\"\'%;()&+]', '', value)
-
-    return value.strip()
 
 class FotoBuktiBullyingSerializer(serializers.ModelSerializer):
     """
@@ -336,24 +317,4 @@ class LaporanBullyingDetailSerializer(serializers.ModelSerializer):
         if obj.anonimitas:
             return "Dirahasiakan"
         return getattr(obj.pelapor, 'kelas', None)
-
-class CancelLaporanSerializer(serializers.Serializer):
-    """
-    Serializer specifically for report cancellation validation.
-    
-    Only acts to ensure the cancellation reason (alasan_pembatalan)
-    meets the mandatory requirements.
-    """
-    alasan_pembatalan = serializers.CharField()
-
-    def validate_alasan_pembatalan(self, value):
-        """
-        Validates the text provided as a cancellation reason.
-        
-        Raises:
-            ValidationError: If the reason length is fewer than 50 characters.
-        """
-        if not value or len(value) < 50:
-            raise serializers.ValidationError("Alasan pembatalan wajib diisi minimal 50 karakter")
-        return value
 

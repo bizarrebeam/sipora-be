@@ -20,13 +20,27 @@ class ArtikelKelolaView(APIView):
     @role_required(['kemahasiswaan'])
     def get(self, request):
         """
-        Return a list of all articles (draft and published) for admin management.
+        Return a paginated list of all articles (draft and published) for admin management.
         """
         artikel_list = Artikel.objects.all().prefetch_related('foto_artikel').order_by('-created_at')
-        serializer = ArtikelSerializer(artikel_list, many=True, context={'request': request})
+
+        # Pagination
+        page = int(request.query_params.get('page', 1))
+        page_size = min(int(request.query_params.get('page_size', 20)), 100)
+        start = (page - 1) * page_size
+        end = start + page_size
+        total = artikel_list.count()
+
+        serializer = ArtikelSerializer(artikel_list[start:end], many=True, context={'request': request})
         return Response({
             "message": "Berhasil mengambil daftar artikel",
-            "data": serializer.data
+            "data": serializer.data,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "total_pages": (total + page_size - 1) // page_size,
+            }
         }, status=status.HTTP_200_OK)
 
 
@@ -47,13 +61,27 @@ class ArtikelListCreateView(APIView):
 
     def get(self, request):
         """
-        Return a list of published articles for public view.
+        Return a paginated list of published articles for public view.
         """
         artikel_list = Artikel.objects.filter(status='published').prefetch_related('foto_artikel').order_by('-created_at')
-        serializer = ArtikelSerializer(artikel_list, many=True, context={'request': request})
+
+        # Pagination
+        page = int(request.query_params.get('page', 1))
+        page_size = min(int(request.query_params.get('page_size', 20)), 100)
+        start = (page - 1) * page_size
+        end = start + page_size
+        total = artikel_list.count()
+
+        serializer = ArtikelSerializer(artikel_list[start:end], many=True, context={'request': request})
         return Response({
             "message": "Berhasil mengambil daftar artikel",
-            "data": serializer.data
+            "data": serializer.data,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "total_pages": (total + page_size - 1) // page_size,
+            }
         }, status=status.HTTP_200_OK)
 
     @role_required(['kemahasiswaan'])

@@ -23,6 +23,7 @@ from .serializers import (
     CreateAspirasiSerializer,
 )
 from log_aktivitas.utils import catat_log
+from core.utils import sanitize_text
 
 
 class CreateAspirasiView(APIView):
@@ -393,13 +394,13 @@ class EditAspirasiView(APIView):
 
         changed = False
         if judul is not None:
-            aspirasi.judul = judul
+            aspirasi.judul = sanitize_text(judul)
             changed = True
         if kategori is not None:
             aspirasi.kategori = kategori
             changed = True
         if deskripsi is not None:
-            aspirasi.deskripsi = deskripsi
+            aspirasi.deskripsi = sanitize_text(deskripsi)
             changed = True
         if anonimitas is not None:
             # anonimitas may be string when sent via formdata
@@ -431,8 +432,20 @@ class EditAspirasiView(APIView):
 
         # Handle new uploaded photos
         files = request.FILES.getlist('foto_bukti')
-        for f in files:
-            FotoBuktiPendukung.objects.create(laporan=aspirasi, foto=f)
+        if files:
+            current_count = FotoBuktiPendukung.objects.filter(laporan=aspirasi).count()
+            if current_count + len(files) > 5:
+                return Response(
+                    {"status": "error", "message": f"Maksimal 5 foto. Saat ini sudah ada {current_count} foto.", "data": None},
+                    status=400
+                )
+            for f in files:
+                if f.size > 5 * 1024 * 1024:
+                    return Response({"status": "error", "message": "Ukuran file maksimal 5MB", "data": None}, status=400)
+                if not f.content_type.startswith('image/'):
+                    return Response({"status": "error", "message": "File harus berupa gambar", "data": None}, status=400)
+            for f in files:
+                FotoBuktiPendukung.objects.create(laporan=aspirasi, foto=f)
 
         ip = request.META.get('REMOTE_ADDR')
         if aspirasi.anonimitas:

@@ -12,6 +12,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
 from akun.decorators import role_required
 from log_aktivitas.utils import catat_log
+from core.utils import sanitize_text, STATUS_LABELS, build_status_change_catatan
 from .models import LaporanBullying, FotoBuktiBullying, RiwayatStatusBullying
 from .serializers import (
     LaporanBullyingCreateUpdateSerializer,
@@ -22,43 +23,6 @@ from .serializers import (
 )
 from django.db.models import Q
 
-# Status display labels mapping
-STATUS_LABELS = {
-    'menunggu': 'Menunggu Konfirmasi',
-    'diproses': 'Diproses',
-    'menunggu_konfirmasi_selesai': 'Menunggu Konfirmasi Selesai',
-    'selesai': 'Selesai',
-    'ditolak': 'Ditolak',
-    'dibatalkan': 'Dibatalkan',
-}
-
-
-def build_status_change_catatan(status_current, status_new, reason='', note=''):
-    """Return a consistent history note for status transitions."""
-    reason = (reason or '').strip()
-    note = (note or '').strip()
-
-    if status_new == 'ditolak' and reason:
-        return f"Status diperbarui ke {STATUS_LABELS['ditolak']}. Alasan: {reason}"
-
-    if status_new == 'menunggu_konfirmasi_selesai':
-        return (
-            f"Status diperbarui ke {STATUS_LABELS['menunggu_konfirmasi_selesai']}. "
-            f"Catatan tindak lanjut: {note}"
-        )
-
-    if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'selesai':
-        if note:
-            return f"Pelapor mengonfirmasi laporan selesai. Catatan: {note}"
-        return 'Pelapor mengonfirmasi laporan selesai'
-
-    if status_current == 'menunggu_konfirmasi_selesai' and status_new == 'diproses':
-        return 'Pelapor menyatakan laporan belum selesai dan dikembalikan ke Diproses'
-
-    if note:
-        return f"Status diperbarui ke {STATUS_LABELS.get(status_new, status_new)}. Catatan: {note}"
-
-    return None
 
 
 class BuatLaporanBullyingView(APIView):
@@ -84,6 +48,18 @@ class BuatLaporanBullyingView(APIView):
                      - 400 Bad Request: If data is invalid, photo count exceeds 5, 
                                         file size exceeds 5MB, or file type is not an image.
         """
+        # Validate photo files BEFORE saving the report to prevent orphans
+        files = request.FILES.getlist('foto_bukti')
+
+        if len(files) > 5:
+            return Response({"error": "Maksimal 5 foto"}, status=400)
+
+        for file in files:
+            if file.size > 5 * 1024 * 1024:
+                return Response({"error": "Ukuran file maksimal 5MB"}, status=400)
+            if not file.content_type.startswith('image/'):
+                return Response({"error": "File harus berupa gambar"}, status=400)
+
         serializer = LaporanBullyingCreateUpdateSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -91,22 +67,6 @@ class BuatLaporanBullyingView(APIView):
                 pelapor=request.user,
                 status='menunggu'
             )
-
-            # Mengambil file dari request
-            files = request.FILES.getlist('foto_bukti')
-
-            # Validasi jumlah file
-            if len(files) > 5:
-                return Response({"error": "Maksimal 5 foto"}, status=400)
-
-            for file in files:
-                # Validasi ukuran file (maks 5MB)
-                if file.size > 5 * 1024 * 1024:
-                    return Response({"error": "Ukuran file maksimal 5MB"}, status=400)
-
-                # Validasi tipe file
-                if not file.content_type.startswith('image/'):
-                    return Response({"error": "File harus berupa gambar"}, status=400)
 
             for file in files:
                 FotoBuktiBullying.objects.create(
@@ -185,7 +145,7 @@ class EditLaporanBullyingView(APIView):
         if laporan.status != 'menunggu':
             return Response({"error": "Laporan tidak dapat diubah karena sudah diproses"}, status=400)
 
-        # ── Update field langsung (pola aspirasi) ──
+        # ── Update fields ──
         judul = request.data.get('judul')
         deskripsi = request.data.get('deskripsi')
         lokasi = request.data.get('lokasi')
@@ -196,13 +156,13 @@ class EditLaporanBullyingView(APIView):
 
         changed = False
         if judul is not None:
-            laporan.judul = judul
+            laporan.judul = sanitize_text(judul)
             changed = True
         if deskripsi is not None:
-            laporan.deskripsi = deskripsi
+            laporan.deskripsi = sanitize_text(deskripsi)
             changed = True
         if lokasi is not None:
-            laporan.lokasi = lokasi
+            laporan.lokasi = sanitize_text(lokasi)
             changed = True
         if tanggal_kejadian is not None:
             laporan.tanggal_kejadian = tanggal_kejadian

@@ -37,7 +37,7 @@ class LaporanPeriodikView(APIView):
     
     permission_classes = [IsAuthenticated]
 
-    @role_required()
+    @role_required('kemahasiswaan')
     def get(self, request):
         """
         Handles GET requests to retrieve periodic reports.
@@ -358,7 +358,6 @@ def laporan_periodik_export(request):
         # Return PDF directly as HttpResponse (bypassing DRF)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response['Access-Control-Allow-Origin'] = '*'
         return response
 
     except Exception as e:

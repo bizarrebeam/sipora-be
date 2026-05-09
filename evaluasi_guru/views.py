@@ -94,6 +94,7 @@ class EvaluasiCreateView(APIView):
             )
             
         validated_ratings = []
+        valid_indikator_ids = set(str(i) for i in Indikator.objects.values_list('id', flat=True))
         for r in ratings:
             if not isinstance(r, dict):
                 continue
@@ -120,7 +121,7 @@ class EvaluasiCreateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
-            if not indikator_id or not Indikator.objects.filter(id=indikator_id).exists():
+            if not indikator_id or str(indikator_id) not in valid_indikator_ids:
                 return Response(
                     {"detail": f"Indikator dengan ID {indikator_id} tidak valid."}, 
                     status=status.HTTP_400_BAD_REQUEST
