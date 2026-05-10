@@ -71,29 +71,38 @@ def generate_pdf_filename(start_date: datetime, end_date: datetime) -> str:
         Filename in format: Laporan_Bulanan_[Bulan]_[Tahun].pdf
         For multi-month reports: Laporan_Bulanan_[BulanAwal]-[BulanAkhir]_[Tahun].pdf
     """
-    # Ensure we have valid month values (1-12)
-    start_month = max(1, min(12, getattr(start_date, 'month', 1)))
-    end_month = max(1, min(12, getattr(end_date, 'month', 1)))
-    year = getattr(start_date, 'year', 2026)
-    
-    start_month_name = get_month_name_indonesian(start_month)
-    
-    # If same month, use single month format
-    if start_month == end_month:
-        month_name = start_month_name or f"Bulan{start_month}"  # Fallback if translation missing
-        return f"Laporan_Bulanan_{month_name}_{year}.pdf"
-    
-    # If different months, show range
-    end_month_name = get_month_name_indonesian(end_month)
-    end_month_name = end_month_name or f"Bulan{end_month}"  # Fallback if translation missing
-    start_month_name = start_month_name or f"Bulan{start_month}"  # Fallback if translation missing
-    
-    # If spanning different years, include year in month names
-    end_year = getattr(end_date, 'year', 2026)
-    if year != end_year:
-        return f"Laporan_Bulanan_{start_month_name}_{year}-{end_month_name}_{end_year}.pdf"
-    
-    return f"Laporan_Bulanan_{start_month_name}-{end_month_name}_{year}.pdf"
+    try:
+        # Safely extract date components with fallbacks
+        start_month = max(1, min(12, int(getattr(start_date, 'month', 1))))
+        end_month = max(1, min(12, int(getattr(end_date, 'month', 1))))
+        start_year = int(getattr(start_date, 'year', 2026))
+        end_year = int(getattr(end_date, 'year', 2026))
+        
+        # Get month names with fallback to numerical format
+        start_month_name = get_month_name_indonesian(start_month)
+        if not start_month_name or not isinstance(start_month_name, str):
+            start_month_name = f"Bulan_{start_month:02d}"
+        
+        end_month_name = get_month_name_indonesian(end_month)
+        if not end_month_name or not isinstance(end_month_name, str):
+            end_month_name = f"Bulan_{end_month:02d}"
+        
+        # Generate filename based on date range
+        if start_month == end_month and start_year == end_year:
+            # Single month format
+            return f"Laporan_Bulanan_{start_month_name}_{start_year}.pdf"
+        elif start_year == end_year:
+            # Same year, different months
+            return f"Laporan_Bulanan_{start_month_name}-{end_month_name}_{start_year}.pdf"
+        else:
+            # Different years
+            return f"Laporan_Bulanan_{start_month_name}_{start_year}-{end_month_name}_{end_year}.pdf"
+            
+    except Exception as e:
+        # Emergency fallback with timestamp
+        from datetime import datetime as dt
+        timestamp = dt.now().strftime('%Y%m%d')
+        return f"Laporan_Bulanan_{timestamp}.pdf"
 
 
 def format_status(status: str) -> str:
