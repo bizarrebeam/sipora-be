@@ -360,6 +360,7 @@ def laporan_periodik_export(request):
         encoded_filename = quote(filename, safe='')
         response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
         response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         return response
 
     except Exception as e:
