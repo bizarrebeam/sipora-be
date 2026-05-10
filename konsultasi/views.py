@@ -67,15 +67,6 @@ class JadwalKonsultasiListCreateView(APIView):
         Returns:
             Response: JSON dengan daftar jadwal berdasarkan role user
         """
-        """
-        GET endpoint untuk mengambil daftar jadwal.
-        
-        Args:
-            request: HTTP request dengan user terautentikasi
-            
-        Returns:
-            Response: JSON dengan daftar jadwal berdasarkan role user
-        """
         # Filter jadwal berdasarkan role pengguna
         if request.user.role == 'guru_bk':
             # Guru BK hanya lihat jadwal milik sendiri saja
@@ -296,15 +287,6 @@ class BookingKonsultasiView(APIView):
         Returns:
             Response: JSON dengan daftar booking berdasarkan role user
         """
-        """
-        GET endpoint untuk mengambil daftar booking.
-        
-        Args:
-            request: HTTP request dengan user terautentikasi
-            
-        Returns:
-            Response: JSON dengan daftar booking berdasarkan role user
-        """
         user = request.user
 
         # Filter booking berdasarkan role pengguna
@@ -323,9 +305,9 @@ class BookingKonsultasiView(APIView):
         if tanggal:
             booking_qs = booking_qs.filter(jadwal__tanggal=tanggal)
 
-        status = request.query_params.get('status')
-        if status:
-            booking_qs = booking_qs.filter(status=status)
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            booking_qs = booking_qs.filter(status=status_filter)
 
         serializer = BookingKonsultasiListSerializer(booking_qs, many=True)
         return Response({
@@ -428,20 +410,6 @@ class DetailBookingKonsultasiView(APIView):
 
     @role_required('siswa', 'guru_bk')
     def get(self, request, id):
-        """
-        GET endpoint untuk mengambil detail satu booking.
-        
-        Args:
-            request: HTTP request dengan user terautentikasi
-            id (UUID): ID booking yang ingin dilihat
-            
-        Returns:
-            Response: JSON dengan detail lengkap booking atau error 404
-            
-        Access Control:
-            - Siswa hanya bisa akses booking milik sendiri
-            - Guru BK bisa akses semua booking
-        """
         """
         GET endpoint untuk mengambil detail satu booking.
         

@@ -18,7 +18,7 @@ from laporan_kerusakan.models import LaporanKerusakan
 from aspirasi.models import Aspirasi
 from .serializer import ( DashboardBullyingSerializer, DashboardKerusakanAspirasiSerializer,)
 
-class dashboardBullyingView(APIView):
+class DashboardBullyingView(APIView):
     """
     API View for retrieving Bullying Report dashboard metrics.
     
@@ -52,6 +52,8 @@ class dashboardBullyingView(APIView):
 
         labels = []
         data_points = []
+        qs_current = base_qs.none()
+        qs_prev = base_qs.none()
 
         try:
             if period == 'semester':
@@ -143,9 +145,6 @@ class dashboardBullyingView(APIView):
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # ensure qs_current/qs_prev exist (set to empty qs if not set above)
-        qs_current = locals().get('qs_current', base_qs.none())
-        qs_prev = locals().get('qs_prev', base_qs.none())
 
         def get_metrics(queryset):
             return {
@@ -194,7 +193,7 @@ class dashboardBullyingView(APIView):
         return Response({'status': 'success', 'message': 'OK', 'data': serializer.data})
 
 
-class dashboardKerusakanAspirasiView(APIView):
+class DashboardKerusakanAspirasiView(APIView):
     """
     API View for retrieving combined dashboard metrics for Laporan Kerusakan and Aspirasi.
     
@@ -229,6 +228,9 @@ class dashboardKerusakanAspirasiView(APIView):
 
         labels = []
         kerusakan_points = []
+        qs_k = k_qs.none()
+        start = date.today()
+        end = date.today()
 
         try:
             if period == 'week':
@@ -286,10 +288,8 @@ class dashboardKerusakanAspirasiView(APIView):
         except Exception:
             a_qs_filtered = a_qs
 
-        # metrics follow filters
-        qs_k_final = locals().get('qs_k', k_qs)
-        kerusakan_total = qs_k_final.count()
-        kerusakan_belum = qs_k_final.exclude(status__in=['menunggu', 'diproses', 'menunggu_konfirmasi_selesai']).count()
+        kerusakan_total = qs_k.count()
+        kerusakan_belum = qs_k.exclude(status__in=['menunggu', 'diproses', 'menunggu_konfirmasi_selesai']).count()
         aspirasi_total = a_qs_filtered.count()
         aspirasi_ditandai = a_qs_filtered.filter(status_ditandai='ditandai').count()
 
@@ -330,7 +330,7 @@ class dashboardKerusakanAspirasiView(APIView):
                 'aspirasi_ditandai': aspirasi_ditandai,
             },
             'differences': differences,
-            'by_status_kerusakan': {s['status']: s['count'] for s in qs_k_final.values('status').annotate(count=Count('id'))},
+            'by_status_kerusakan': {s['status']: s['count'] for s in qs_k.values('status').annotate(count=Count('id'))},
             'kerusakan_trend': {'labels': labels, 'series': [{'name': 'Kerusakan', 'data': kerusakan_points}]},
             'aspirasi_distribution': {'categories': [c for c, _ in aspirasi_distribution], 'counts': [n for _, n in aspirasi_distribution]},
         }

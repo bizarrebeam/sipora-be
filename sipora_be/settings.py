@@ -12,20 +12,22 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Dynamically load the contiguous .env file natively if not operating within the Railway production container.
 if not os.getenv('RAILWAY_STATIC_URL'):
     load_dotenv(os.path.join(BASE_DIR, '.env'), override=False)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 PRODUCTION = os.getenv('PRODUCTION', 'False').strip('\"\'').lower() == 'true'
-DEBUG = os.getenv('DEBUG', 'True').strip('\"\'').lower() == 'true'
+DEBUG = os.getenv('DEBUG', str(not PRODUCTION)).strip('\"\'').lower() == 'true'
 
 ALLOWED_HOST_ENV = os.getenv('ALLOWED_HOSTS')
 if ALLOWED_HOST_ENV:
-    ALLOWED_HOSTS = ALLOWED_HOST_ENV.split(',')
+    ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOST_ENV.split(',') if host.strip()]
 else:
-    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"]
+    if DEBUG:
+        ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"]
+    else:
+        ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".up.railway.app"]
 
 INSTALLED_APPS = [
     'django.contrib.admin',

@@ -1,7 +1,5 @@
-from django.db import models
-
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.utils import timezone
 
@@ -58,18 +56,19 @@ class Aspirasi(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.no_laporan:
-            year = timezone.now().year
-            last_laporan = Aspirasi.objects.filter(
-                no_laporan__startswith=f"ASP-{year}-"
-            ).order_by('-no_laporan').first()
+            with transaction.atomic():
+                year = timezone.now().year
+                last_laporan = Aspirasi.objects.filter(
+                    no_laporan__startswith=f"ASP-{year}-"
+                ).select_for_update().order_by('-no_laporan').first()
 
-            if last_laporan:
-                last_number = int(last_laporan.no_laporan.split('-')[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
+                if last_laporan:
+                    last_number = int(last_laporan.no_laporan.split('-')[-1])
+                    new_number = last_number + 1
+                else:
+                    new_number = 1
 
-            self.no_laporan = f"ASP-{year}-{str(new_number).zfill(4)}"
+                self.no_laporan = f"ASP-{year}-{str(new_number).zfill(4)}"
 
         super().save(*args, **kwargs)
 

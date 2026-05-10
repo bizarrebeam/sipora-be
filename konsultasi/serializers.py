@@ -271,8 +271,8 @@ class BookingKonsultasiCreateSerializer(serializers.ModelSerializer):
     - Waktu slot tidak boleh sudah lewat
     - Cegah tabrakan: siswa tidak boleh punya 2 booking yang berkonflik waktu pada hari yang sama
     
-    Note: Gunakan select_for_update() + atomic transaction di views untuk prevent race condition
-    ketika 2 siswa mencoba booking slot yang sama bersamaan.
+    Note: select_for_update() + atomic transaction di views untuk prevent race condition
+    ketika 2 siswa mencoba booking slot yang sama bersamaan
     """
 
     class Meta:

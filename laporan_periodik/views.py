@@ -37,7 +37,7 @@ class LaporanPeriodikView(APIView):
     
     permission_classes = [IsAuthenticated]
 
-    @role_required()
+    @role_required('kemahasiswaan')
     def get(self, request):
         """
         Handles GET requests to retrieve periodic reports.

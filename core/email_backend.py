@@ -2,6 +2,11 @@ import os
 import requests
 from django.core.mail.backends.base import BaseEmailBackend
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class VercelProxyEmailBackend(BaseEmailBackend):
     """
     A custom email backend that proxies email requests to a Serverless Function.
@@ -18,7 +23,9 @@ class VercelProxyEmailBackend(BaseEmailBackend):
             frontend_url = "https://sipora-fe.vercel.app"
             
         vercel_url = f"{frontend_url}/api/send-email"
-        secret = os.getenv("VERCEL_EMAIL_SECRET", "supersekret")
+        secret = os.getenv("VERCEL_EMAIL_SECRET")
+        if not secret:
+            raise ValueError("VERCEL_EMAIL_SECRET environment variable is not set")
         
         for message in email_messages:
             is_html = False
@@ -46,11 +53,11 @@ class VercelProxyEmailBackend(BaseEmailBackend):
                 if response.status_code == 200:
                     sent_counter += 1
                 else:
-                    print(f"[Vercel Proxy Error {response.status_code}]:", response.text)
+                    logger.error(f"[Vercel Proxy Error {response.status_code}]: {response.text}")
                     if not self.fail_silently:
                         response.raise_for_status()
             except Exception as e:
-                print(f"[Email Proxy Exception]: Failed to contact {vercel_url} -> {e}")
+                logger.error(f"[Email Proxy Exception]: Failed to contact {vercel_url} -> {e}")
                 if not self.fail_silently:
                     raise e
                     

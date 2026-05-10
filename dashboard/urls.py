@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import ( dashboardBullyingView, dashboardKerusakanAspirasiView)
+from .views import ( DashboardBullyingView, DashboardKerusakanAspirasiView)
 
 urlpatterns = [
-    path('dashboard-bullying/', dashboardBullyingView.as_view(), name='dashboard-bullying'),
-    path('dashboard-kerusakan-aspirasi/', dashboardKerusakanAspirasiView.as_view(), name='dashboard-kerusakan-aspirasi'),
+    path('dashboard-bullying/', DashboardBullyingView.as_view(), name='dashboard-bullying'),
+    path('dashboard-kerusakan-aspirasi/', DashboardKerusakanAspirasiView.as_view(), name='dashboard-kerusakan-aspirasi'),
 ]
