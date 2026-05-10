@@ -23,7 +23,9 @@ class VercelProxyEmailBackend(BaseEmailBackend):
             frontend_url = "https://sipora-fe.vercel.app"
             
         vercel_url = f"{frontend_url}/api/send-email"
-        secret = os.getenv("VERCEL_EMAIL_SECRET", "supersekret")
+        secret = os.getenv("VERCEL_EMAIL_SECRET")
+        if not secret:
+            raise ValueError("VERCEL_EMAIL_SECRET environment variable is not set")
         
         for message in email_messages:
             is_html = False

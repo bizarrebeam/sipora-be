@@ -755,9 +755,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
                     fail_silently=False,
                 )
             except Exception as e:
-                import traceback
-                logger.error(f"Email Dispatch Error: {str(e)}")
-                traceback.print_exc()
+                logger.exception(f"Email Dispatch Error: {str(e)}")
 
         threading.Thread(target=send_email_thread).start()
 
@@ -874,9 +872,7 @@ class ForgotPasswordGuruSerializer(serializers.Serializer):
                     fail_silently=False,
                 )
             except Exception as e:
-                import traceback
-                logger.error(f"Email Dispatch Error: {str(e)}")
-                traceback.print_exc()
+                logger.exception(f"Email Dispatch Error: {str(e)}")
 
         threading.Thread(target=send_email_thread).start()
 
