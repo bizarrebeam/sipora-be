@@ -5,24 +5,28 @@ Endpoints yang tersedia:
 
 1. PBI-38 — Jadwal Ketersediaan Guru BK:
    - GET    /api/konsultasi/jadwal/
-     Daftar jadwal (filter by role: guru_bk lihat milik sendiri, siswa lihat yang tersedia)
    - POST   /api/konsultasi/jadwal/
-     Guru BK membuat jadwal baru
    - PUT    /api/konsultasi/jadwal/<uuid:id>/
-     Guru BK mengubah jadwal milik sendiri
    - DELETE /api/konsultasi/jadwal/<uuid:id>/
-     Guru BK menghapus jadwal milik sendiri (hanya jika belum dipesan)
 
 2. PBI-39 — Membuat Booking Konsultasi:
    - POST   /api/konsultasi/booking/
-     Siswa membuat booking baru untuk slot jadwal
-     Menggunakan atomic transaction + select_for_update untuk prevent race condition
 
-3. PBI-43 — Daftar & Detail Booking:
+3. PBI-40 — Mengonfirmasi Jadwal Booking (Guru BK):
+   - PATCH  /api/konsultasi/booking/<uuid:id>/confirm/
+     Body: { aksi: 'setujui'|'tolak', alasan?: str }
+
+4. PBI-41 — Membatalkan Jadwal Booking (Siswa & Guru BK):
+   - PATCH  /api/konsultasi/booking/<uuid:id>/cancel/
+     Body: { alasan: str }
+
+5. PBI-42 — Reschedule Jadwal Booking (Siswa):
+   - PATCH  /api/konsultasi/booking/<uuid:id>/reschedule/
+     Body: { jadwal_baru: UUID }
+
+6. PBI-43 — Daftar & Detail Booking:
    - GET    /api/konsultasi/booking/
-     Daftar booking (filter by role: siswa lihat milik sendiri, guru_bk lihat semua)
    - GET    /api/konsultasi/booking/<uuid:id>/
-     Detail satu booking (siswa hanya bisa lihat booking milik sendiri)
 """
 
 from django.urls import path
@@ -31,26 +35,44 @@ from .views import (
     JadwalKonsultasiDetailView,
     BookingKonsultasiView,
     DetailBookingKonsultasiView,
+    KonfirmasiBookingView,
+    BatalkanBookingView,
+    RescheduleBookingView,
+    SelesaiBookingView, 
+    TidakHadirBookingView, 
 )
 
 urlpatterns = [
     # ════════════════════════════════════════════════════════════════════════
     # PBI-38 — Jadwal Ketersediaan Guru BK
     # ════════════════════════════════════════════════════════════════════════
-    # GET, POST — /api/konsultasi/jadwal/
     path('jadwal/', JadwalKonsultasiListCreateView.as_view()),
-    
-    # PUT, DELETE — /api/konsultasi/jadwal/<uuid:id>/
     path('jadwal/<uuid:id>/', JadwalKonsultasiDetailView.as_view()),
 
     # ════════════════════════════════════════════════════════════════════════
     # PBI-39 & PBI-43 — Booking Konsultasi
     # ════════════════════════════════════════════════════════════════════════
-    # GET — daftar booking (siswa: milik sendiri, guru_bk: semua)
-    # POST — siswa membuat booking baru untuk slot jadwal
     path('booking/', BookingKonsultasiView.as_view()),
-    
-    # GET — detail satu booking berdasarkan ID
-    # (siswa hanya bisa akses milik sendiri, guru_bk bisa akses semua)
     path('booking/<uuid:id>/', DetailBookingKonsultasiView.as_view()),
+
+    # ════════════════════════════════════════════════════════════════════════
+    # PBI-40 — Konfirmasi Booking (Guru BK)
+    # ════════════════════════════════════════════════════════════════════════
+    path('booking/<uuid:id>/confirm/', KonfirmasiBookingView.as_view()),
+
+    # ════════════════════════════════════════════════════════════════════════
+    # PBI-41 — Batalkan Booking (Siswa & Guru BK)
+    # ════════════════════════════════════════════════════════════════════════
+    path('booking/<uuid:id>/cancel/', BatalkanBookingView.as_view()),
+
+    # ════════════════════════════════════════════════════════════════════════
+    # PBI-42 — Reschedule Booking (Siswa)
+    # ════════════════════════════════════════════════════════════════════════
+    path('booking/<uuid:id>/reschedule/', RescheduleBookingView.as_view()),
+
+    # Tandai Selesai (Guru BK)
+    path('booking/<uuid:id>/selesai/', SelesaiBookingView.as_view()),
+
+    # Tandai Tidak Hadir (Guru BK)
+    path('booking/<uuid:id>/tidak-hadir/', TidakHadirBookingView.as_view()),
 ]

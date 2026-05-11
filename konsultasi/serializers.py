@@ -239,8 +239,10 @@ class JadwalKonsultasiListSerializer(serializers.ModelSerializer):
         Returns:
             str: Nama siswa jika ada booking, None jika belum ada booking
         """
-        booking = getattr(obj, 'booking', None)
-        if not booking or not booking.siswa_id:
+        if not hasattr(obj, 'booking'):
+            return None
+        booking = obj.booking
+        if not booking.siswa_id:
             return None
         return getattr(booking.siswa, 'nama_lengkap', str(booking.siswa))
 
@@ -251,8 +253,10 @@ class JadwalKonsultasiListSerializer(serializers.ModelSerializer):
         Returns:
             str: Kelas siswa jika ada booking, None jika belum ada booking
         """
-        booking = getattr(obj, 'booking', None)
-        if not booking or not booking.siswa_id:
+        if not hasattr(obj, 'booking'):
+            return None
+        booking = obj.booking
+        if not booking.siswa_id:
             return None
         return getattr(booking.siswa, 'kelas', None)
 
@@ -452,6 +456,7 @@ class BookingKonsultasiListSerializer(serializers.ModelSerializer):
             'status',
             'dibuat_pada',
             'updated_at',
+            'catatan_hasil', 
         ]
 
     def get_nama_siswa(self, obj):
@@ -504,6 +509,7 @@ class BookingKonsultasiDetailSerializer(serializers.ModelSerializer):
             'alasan_pembatalan',
             'dibuat_pada',
             'updated_at',
+            'catatan_hasil', 
         ]
 
     def get_nama_siswa(self, obj):

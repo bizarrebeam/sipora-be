@@ -45,6 +45,10 @@ class JadwalKonsultasi(models.Model):
         ('dibatalkan_siswa', 'Dibatalkan oleh Siswa'),
         # Booking dibatalkan oleh Guru BK
         ('dibatalkan_guru_bk', 'Dibatalkan oleh Guru BK'),
+        # selesai dilakukan konsultasi        
+        ('selesai', 'Selesai'),
+        # tidak datang setelah dikonfirmasi (Guru BK bisa set status ini jika siswa sudah dikonfirmasi tapi tidak hadir pada waktu konsultasi)
+        ('tidak_hadir', 'Tidak Hadir'),
     ]
 
     # Primary key unik menggunakan UUID
@@ -82,6 +86,8 @@ class JadwalKonsultasi(models.Model):
     
     # Timestamp terakhir kali jadwal diubah (otomatis update)
     updated_at = models.DateTimeField(auto_now=True)
+
+    auto_closed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['tanggal', 'waktu_mulai']
@@ -177,11 +183,20 @@ class BookingKonsultasi(models.Model):
     # Alasan pembatalan jika booking dibatalkan
     alasan_pembatalan = models.TextField(blank=True, null=True)
 
+    # catatan hasil konsultasi yang diisi Guru BK saat menandai selesai
+    catatan_hasil = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Catatan/ringkasan hasil konsultasi yang diisi Guru BK saat menandai selesai"
+    )
+
     # Timestamp saat booking dibuat (tidak dapat diubah)
     dibuat_pada = models.DateTimeField(auto_now_add=True)
     
     # Timestamp terakhir kali booking diubah (otomatis update)
     updated_at = models.DateTimeField(auto_now=True)
+
+    auto_closed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-dibuat_pada']
