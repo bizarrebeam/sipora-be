@@ -12,11 +12,15 @@ from rest_framework import status
 from django.utils.dateparse import parse_date
 from django.db.models import Count
 from datetime import datetime, date, timedelta
+from django.utils import timezone
 
 from laporan_bullying.models import LaporanBullying
 from laporan_kerusakan.models import LaporanKerusakan
 from aspirasi.models import Aspirasi
+from konsultasi.models import JadwalKonsultasi, BookingKonsultasi
+from akun.decorators import role_required
 from .serializer import ( DashboardBullyingSerializer, DashboardKerusakanAspirasiSerializer,)
+
 
 class DashboardBullyingView(APIView):
     """
@@ -28,6 +32,7 @@ class DashboardBullyingView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    # @role_required('guru_bk')
     def get(self, request):
         """
         Handles GET requests to calculate and return metrics for the Bullying dashboard.
@@ -337,3 +342,247 @@ class DashboardKerusakanAspirasiView(APIView):
 
         serializer = DashboardKerusakanAspirasiSerializer(payload)
         return Response({'status': 'success', 'message': 'OK', 'data': serializer.data})
+    
+
+class DashboardKonsultasiView(APIView):
+    """API view returning summary metrics for Konsultasi (booking + slots)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'week')
+        year = int(request.query_params.get('year', datetime.now().year))
+        semester = int(request.query_params.get('semester', 1))
+
+        booking_qs = BookingKonsultasi.objects.all()
+        jadwal_qs = JadwalKonsultasi.objects.all()
+
+        labels = []
+        trend_points = []
+
+        try:
+            if period == 'semester':
+                if semester == 1:
+                    start = date(year, 7, 1)
+                    end = date(year, 12, 31)
+                else:
+                    start = date(year, 1, 1)
+                    end = date(year, 6, 30)
+
+            elif period == 'month':
+                month_str = request.query_params.get('month') or datetime.now().strftime('%Y-%m')
+                y, m = [int(x) for x in month_str.split('-')]
+                start = date(y, m, 1)
+                next_month = (start + timedelta(days=32)).replace(day=1)
+                end = next_month - timedelta(days=1)
+
+            else:
+                # week or default
+                if period == 'week':
+                    start_str = request.query_params.get('start_date')
+                    if start_str:
+                        start = parse_date(start_str)
+                    else:
+                        today = date.today()
+                        start = today - timedelta(days=today.weekday())
+                    end = start + timedelta(days=6)
+                else:
+                    end = date.today()
+                    start = end - timedelta(days=30)
+
+            # filter bookings by jadwal.tanggal when possible
+            try:
+                booking_filtered = booking_qs.filter(jadwal__tanggal__range=(start, end))
+            except Exception:
+                # fallback: if Booking has a date field use it, else keep all
+                try:
+                    booking_filtered = booking_qs.filter(tanggal__range=(start, end))
+                except Exception:
+                    booking_filtered = booking_qs
+
+            # filter jadwal slots for the period
+            try:
+                jadwal_filtered = jadwal_qs.filter(tanggal__range=(start, end))
+            except Exception:
+                jadwal_filtered = jadwal_qs
+
+            # build trend labels & points (per day for week/month, per month for semester/default)
+            if period == 'week':
+                cur = start
+                while cur <= end:
+                    labels.append(cur.strftime('%a %d'))
+                    trend_points.append(booking_filtered.filter(jadwal__tanggal=cur).count())
+                    cur = cur + timedelta(days=1)
+
+            elif period == 'month':
+                cur = start
+                while cur <= end:
+                    labels.append(cur.strftime('%d %b'))
+                    trend_points.append(booking_filtered.filter(jadwal__tanggal=cur).count())
+                    cur = cur + timedelta(days=1)
+
+            else:
+                # semester or default: monthly buckets
+                cur = start.replace(day=1)
+                while cur <= end:
+                    labels.append(cur.strftime('%b %Y'))
+                    month_start = cur
+                    next_month = (month_start + timedelta(days=32)).replace(day=1)
+                    trend_points.append(booking_filtered.filter(jadwal__tanggal__gte=month_start, jadwal__tanggal__lt=next_month).count())
+                    cur = next_month
+
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # metrics
+        total_consult = booking_filtered.count()
+
+        # bookings status counts (try booking.status, else check jadwal.status)
+        try:
+            by_status_qs = booking_filtered.values('status').annotate(count=Count('id'))
+            by_status = {s['status']: s['count'] for s in by_status_qs}
+        except Exception:
+            try:
+                by_status_qs = booking_filtered.values('jadwal__status').annotate(count=Count('id'))
+                by_status = {s.get('jadwal__status') or 'unknown': s['count'] for s in by_status_qs}
+            except Exception:
+                by_status = {}
+
+        def safe_count(qs, **filters):
+            try:
+                return qs.filter(**filters).count()
+            except Exception:
+                return 0
+
+        selesai = safe_count(booking_filtered, status='selesai') or safe_count(booking_filtered, jadwal__status='selesai')  
+        menunggu = safe_count(booking_filtered, status='menunggu_konfirmasi') or safe_count(booking_filtered, jadwal__status='menunggu_konfirmasi')
+        dikonfirmasi = safe_count(booking_filtered, status='dikonfirmasi') or safe_count(booking_filtered, jadwal__status='dikonfirmasi')
+        # Count available slots in the calendar dalam satu bulan kedepan
+        try:
+                # Count only slots from now until 1 month ahead.
+                now_dt = timezone.localtime(timezone.now())
+                today_dt = now_dt.date()
+                now_time = now_dt.time()
+                limit_date = today_dt + timedelta(days=30)
+
+                count_start = max(start, today_dt)
+                count_end = min(end, limit_date)
+
+                if count_start > count_end:
+                    tersedia_slots = 0
+                else:
+                    jadwal_window = jadwal_qs.filter(status='tersedia', tanggal__range=(count_start, count_end))
+                    # Exclude slots for today that already finished (waktu_selesai <= now)
+                    if count_start <= today_dt <= count_end:
+                        jadwal_window = jadwal_window.exclude(tanggal=today_dt, waktu_selesai__lte=now_time)
+                    tersedia_slots = jadwal_window.count()
+        except Exception:
+            # Count only slots from now until 1 month ahead berdasarkan filter
+            try:
+                now_dt = timezone.localtime(timezone.now())
+                today_dt = now_dt.date()
+                now_time = now_dt.time()
+                jadwal_window = jadwal_filtered.filter(status='tersedia')
+                jadwal_window = jadwal_window.exclude(tanggal=today_dt, waktu_selesai__lte=now_time)
+                tersedia_slots = jadwal_window.count()
+            except Exception:
+                tersedia_slots = jadwal_filtered.filter(status='tersedia').count()
+
+        # previous period differences
+        try:
+            period_days = (end - start).days + 1
+            prev_end = start - timedelta(days=1)
+            prev_start = prev_end - timedelta(days=period_days - 1)
+
+            try:
+                booking_prev = booking_qs.filter(jadwal__tanggal__range=(prev_start, prev_end))
+            except Exception:
+                try:
+                    booking_prev = booking_qs.filter(tanggal__range=(prev_start, prev_end))
+                except Exception:
+                    booking_prev = booking_qs.none()
+
+            prev_total = booking_prev.count()
+            prev_menunggu = safe_count(booking_prev, status='menunggu_konfirmasi') or safe_count(booking_prev, jadwal__status='menunggu_konfirmasi')
+            prev_dikonfirmasi = safe_count(booking_prev, status='dikonfirmasi') or safe_count(booking_prev, jadwal__status='dikonfirmasi')
+            
+        except Exception:
+            prev_total = prev_menunggu = prev_dikonfirmasi = 0
+
+        differences = {
+            'total': total_consult - prev_total,
+            'selesai': selesai - prev_total,
+            'menunggu': menunggu - prev_menunggu,
+            'terkonfirmasi': dikonfirmasi - prev_dikonfirmasi,
+        }
+
+        # status distribution for pie
+        status_distribution = by_status
+
+        # top students
+        top_students = []
+        try:
+             # Nama lengkap pengguna
+            stu_qs = booking_filtered.values('siswa__id', 'siswa__nama_lengkap').annotate(count=Count('id')).order_by('-count')[:5]
+            for s in stu_qs:
+                name = s.get('siswa__nama_lengkap')
+                if name:
+                    label = name
+                else:
+                    # user's nama_lengkap from the DB
+                    try:
+                        from akun.models import Pengguna
+                        resolved = Pengguna.objects.filter(id=s.get('siswa__id')).values_list('nama_lengkap', flat=True).first()
+                        label = resolved or str(s.get('siswa__id'))
+                    except Exception:
+                        label = str(s.get('siswa__id'))
+                top_students.append({'label': label, 'count': s.get('count', 0)})
+        except Exception:
+            try:
+                stu_qs = booking_filtered.values('siswa').annotate(count=Count('id')).order_by('-count')[:5]
+                from akun.models import Pengguna
+                for s in stu_qs:
+                    siswa_id = s.get('siswa')
+                    try:
+                        resolved = Pengguna.objects.filter(id=siswa_id).values_list('nama_lengkap', flat=True).first()
+                        label = resolved or str(siswa_id)
+                    except Exception:
+                        label = str(siswa_id)
+                    top_students.append({'label': label, 'count': s.get('count', 0)})
+            except Exception:
+                top_students = []
+
+        # top hari 
+        weekday_map = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        weekday_counts = {}
+        try:
+            dates = booking_filtered.values_list('jadwal__tanggal', flat=True)
+            for d in dates:
+                if not d:
+                    continue
+                wd = d.weekday()
+                weekday_counts[wd] = weekday_counts.get(wd, 0) + 1
+            top_days = [{'label': weekday_map[k], 'count': v} for k, v in weekday_counts.items()]
+            top_days.sort(key=lambda x: x['count'], reverse=True)
+            top_days = top_days[:5]
+        except Exception:
+            top_days = []
+
+        payload = {
+            'metrics': {
+                'total_konsultasi': total_consult,
+                'selesai': selesai,
+                'menunggu_konsultasi': menunggu,
+                'konsultasi_terkonfirmasi': dikonfirmasi,
+                'slot_tersedia': tersedia_slots,
+            },
+            'differences': differences,
+            'by_status': by_status,
+            'trend': {'labels': labels, 'series': [{'name': 'Konsultasi', 'data': trend_points}]},
+            'status_distribution': status_distribution,
+            'top_students': top_students,
+            'top_days': top_days,
+        }
+
+        from .serializer import DashboardKonsultasiSerializer
+        ser = DashboardKonsultasiSerializer(payload)
+        return Response({'status': 'success', 'message': 'OK', 'data': ser.data})

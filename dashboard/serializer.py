@@ -41,3 +41,22 @@ class DashboardKerusakanAspirasiSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         return instance
+    
+
+class DashboardKonsultasiSerializer(serializers.Serializer):
+    """
+    Serializer for formatting Konsultasi dashboard data.
+    
+    Structures general metrics, differences, status counts for konsultasi, 
+    konsultasi report trends, and konsultasi category distributions.
+    """   
+    metrics = serializers.DictField(child=serializers.IntegerField())
+    differences = serializers.DictField(child=serializers.IntegerField(), required=False)
+    by_status = serializers.DictField(child=serializers.IntegerField(), required=False)
+    trend = serializers.DictField(required=False)
+    status_distribution = serializers.DictField(required=False)
+    top_students = serializers.ListField(child=serializers.DictField(), required=False)
+    top_days = serializers.ListField(child=serializers.DictField(), required=False)
+
+    def to_representation(self, instance):
+        return instance
