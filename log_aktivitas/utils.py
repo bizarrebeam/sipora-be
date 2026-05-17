@@ -1,14 +1,15 @@
 """
+Core Utility Functions for Activity Logging.
+
+This module exposes the primary, decoupled logging function for writing to the
+audit trail without requiring an active HTTP request context. Unlike helpers.py
+(which extracts user/IP from the request), this function accepts them as direct
+arguments — making it usable from serializers, management commands, and signals.
+"""
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-Core Utility Functions for Activity Logging.
-
-This module exposes the primary, decoupled procedural functions for writing to the audit ledger
-without strictly requiring active HTTP request contexts.
-"""
 
 def catat_log(user, aksi, deskripsi, modul, ip_address=None):
     """

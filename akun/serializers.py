@@ -27,8 +27,21 @@ logger = logging.getLogger(__name__)
 
 class RegisterSiswaSerializer(serializers.ModelSerializer):
     """
-    Handles the public registration of Siswa (Student) accounts.
-    Validates NIS uniqueness, presence of required demographic fields, and password strength.
+    Handles public registration of Siswa (Student) accounts.
+
+    Flow:
+        1. Frontend POSTs to /akun/register/ with NIS, name, email, class, password.
+        2. This serializer validates:
+           - NIS must be exactly 4 numeric digits and not already registered.
+           - Email must not already be in use by another account.
+           - Password must be at least 8 chars with a mix of letters + numbers.
+           - password and konfirmasi_password must match.
+        3. create() registers a new user with role='siswa' and username=NIS.
+
+    Important notes:
+        - Newly created student accounts are unverified (is_verified=False).
+          Admin/Kemahasiswaan must verify them via AdminVerifikasiSiswaView.
+        - Password is auto-hashed by create_user(), never stored in plaintext.
     """
     password = serializers.CharField(
         write_only=True, min_length=8,
@@ -44,6 +57,7 @@ class RegisterSiswaSerializer(serializers.ModelSerializer):
         fields = ('nis', 'nama_lengkap', 'email', 'kelas', 'password', 'konfirmasi_password')
 
     def validate_nis(self, value):
+        """NIS must be exactly 4 numeric digits and not already in the database."""
         if not value.isdigit() or len(value) != 4:
             raise serializers.ValidationError("NIS harus terdiri dari 4 digit angka.")
         if Pengguna.objects.filter(nis=value).exists():
@@ -63,16 +77,19 @@ class RegisterSiswaSerializer(serializers.ModelSerializer):
         return value.strip().lower()
 
     def validate_password(self, value):
+        """Enforce mixed letters + numbers. Regex check at field level, not in validate()."""
         if not re.search(r'[a-zA-Z]', value) or not re.search(r'[0-9]', value):
             raise serializers.ValidationError("Password harus mengandung kombinasi huruf dan angka.")
         return value
 
     def validate(self, data):
+        """Cross-field check: ensure password and confirmation match."""
         if data['password'] != data['konfirmasi_password']:
             raise serializers.ValidationError("Password dan konfirmasi password tidak cocok.")
         return data
 
     def create(self, validated_data):
+        """Create a new student account. Username is set to the same value as NIS."""
         validated_data.pop('konfirmasi_password')
         return Pengguna.objects.create_user(
             username=validated_data['nis'],
@@ -89,8 +106,21 @@ class RegisterSiswaSerializer(serializers.ModelSerializer):
 
 class AdminBuatGuruSerializer(serializers.ModelSerializer):
     """
-    Serializer for administrators creating Teacher (Guru) accounts.
-    Validates NUPTK formatting, uniqueness, and assigns the 'guru' role explicitly.
+    Handles Guru (Teacher) account creation by Kemahasiswaan admin.
+
+    Flow:
+        1. Admin POSTs to /akun/admin/buat/ with role='guru' set in the view.
+        2. This serializer validates:
+           - NUPTK must be 16 numeric digits and unique.
+           - Email must be unique.
+           - riwayat_mengajar is a list of {nama_mata_pelajaran, kelas_diajar}.
+        3. create() builds the user + snapshots MataPelajaranGuruSemester
+           for the current academic year and semester.
+
+    riwayat_mengajar relationship:
+        The `mata_pelajaran` field (CharField on Pengguna) is synced as a comma-separated
+        string of subject names. This is a legacy field still used in some display views.
+        The actual structured data lives in the MataPelajaranGuruSemester table.
     """
     password = serializers.CharField(
         write_only=True, min_length=8,
@@ -127,6 +157,11 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         return value.strip().lower()
 
     def validate_riwayat_mengajar(self, value):
+        """
+        Validate the riwayat_mengajar list.
+        Each item must have a non-empty nama_mata_pelajaran and kelas_diajar (list, min 1).
+        Data is stripped and cleaned before passing to create().
+        """
         if not value:
             raise serializers.ValidationError("Riwayat mengajar tidak boleh kosong.")
         
@@ -147,9 +182,18 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
         return cleaned_data
 
     def create(self, validated_data):
+        """
+        Create a Guru account + MataPelajaranGuruSemester records.
+
+        Steps:
+            1. Pop riwayat_mengajar from validated_data (not a model field).
+            2. Build comma-separated mata_pelajaran string for the legacy field.
+            3. create_user with role='guru', is_verified=True (teachers are immediately active).
+            4. Loop riwayat_mengajar -> create MataPelajaranGuruSemester per subject.
+        """
         riwayat_data = validated_data.pop('riwayat_mengajar', [])
         
-        # Consistent string fallback for old field
+        # Sync legacy mata_pelajaran field (comma-separated string)
         mata_pelajaran_str = ", ".join([r['nama_mata_pelajaran'] for r in riwayat_data])
         
         user = Pengguna.objects.create_user(
@@ -163,6 +207,7 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
             is_verified=True,
         )
         
+        # Snapshot riwayat mengajar ke tabel semester
         ta = get_tahun_ajaran()
         sem = get_semester()
         
@@ -180,8 +225,14 @@ class AdminBuatGuruSerializer(serializers.ModelSerializer):
 
 class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
     """
-    Serializer for administrators creating Guidance Counselor (Guru BK) accounts.
-    Allows optional NUPTK and assigns the 'guru_bk' role explicitly.
+    Handles Guru BK (Guidance Counselor) account creation by Kemahasiswaan admin.
+
+    Key differences from AdminBuatGuruSerializer:
+        - NUPTK is optional (Guru BK may not have one).
+        - No riwayat_mengajar (BK are not subject teachers).
+        - mata_pelajaran is auto-set to 'Bimbingan Konseling'.
+        - Username is manually filled by admin (not auto-derived from NUPTK).
+        - Immediately verified (is_verified=True).
     """
     password = serializers.CharField(
         write_only=True, min_length=8,
@@ -243,15 +294,23 @@ class AdminBuatGuruBKSerializer(serializers.ModelSerializer):
 
 class AdminUpdateGuruSerializer(serializers.ModelSerializer):
     """
-    Serializer for administrators updating Teacher (Guru) accounts.
-    Allows updating name, email, and teaching history.
-    Implements OCC via `updated_at` token — rejects update if the record has been
-    modified since the client last fetched it, returning a 409-compatible message.
+    Handles Guru (Teacher) account updates by Kemahasiswaan admin.
+
+    Core features:
+        - Updates nama_lengkap, email, and riwayat_mengajar.
+        - Implements Optimistic Concurrency Control (OCC) via the `updated_at` field.
+
+    How OCC works:
+        1. When admin GETs guru details, the response includes an `updated_at` timestamp.
+        2. When admin PUTs, the frontend must send back the same `updated_at` value.
+        3. validate() compares that timestamp against the current database value.
+        4. If the difference is > 1 second, another user has edited the record —
+           reject with a 'CONFLICT' error (caught by frontend as ConflictError).
+        5. This prevents race conditions when 2 admins edit the same guru simultaneously.
     """
     riwayat_mengajar = serializers.ListField(
         child=serializers.DictField(), required=False
     )
-    # OCC version token — client must send the updated_at they received from GET
     updated_at = serializers.DateTimeField(write_only=True, required=False)
 
     class Meta:
@@ -264,6 +323,7 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate_email(self, value):
+        """Email must be unique — excludes the account currently being edited (self.instance)."""
         instance = self.instance
         if not value or not value.strip():
             raise serializers.ValidationError("Email wajib diisi.")
@@ -295,9 +355,9 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        OCC check: if client sent an updated_at token, verify it matches the current
-        database value. A mismatch means another user has edited the record since the
-        client last fetched it — reject with a 409-style validation error.
+        OCC check: compare client timestamp vs database.
+        If difference > 1 second, the record has changed -> reject.
+        The updated_at field is popped from data so it doesn't flow into update().
         """
         client_updated_at = data.pop('updated_at', None)
         if client_updated_at and self.instance:
@@ -316,8 +376,15 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
                 )
         return data
 
-    
     def update(self, instance, validated_data):
+        """
+        Update guru: name, email, and riwayat_mengajar.
+
+        riwayat_mengajar strategy:
+            - DELETE all records for the current semester, then INSERT the new ones.
+            - This is simpler than diff/merge and avoids orphan records.
+            - The legacy mata_pelajaran field is also synced.
+        """
         riwayat_data = validated_data.pop('riwayat_mengajar', None)
         
         instance.nama_lengkap = validated_data.get('nama_lengkap', instance.nama_lengkap).strip()
@@ -353,8 +420,20 @@ class AdminUpdateGuruSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     """
-    Handles user authentication. Accepts username, NIS, or NUPTK as an identifier.
-    Returns access and refresh JWT tokens alongside authenticated user metadata.
+    Handles user authentication.
+
+    Supports login via 3 identifier types:
+        - NIS (4 digits) -> looks up the nis field, for siswa role.
+        - NUPTK (16 digits) -> looks up the nuptk field, for guru/guru_bk role.
+        - Username (string) -> looks up the username field, usually kemahasiswaan.
+
+    On success:
+        - Returns access & refresh JWT tokens (stored in HTTP-Only cookies by the view).
+        - Returns user metadata (id, role, name, nis/nuptk, class, is_verified).
+
+    On failure:
+        - Generic ValidationError 'Kredensial tidak valid.' — intentionally does not
+          distinguish 'user not found' vs 'wrong password' for security.
     """
     identifier = serializers.CharField(
         error_messages={'blank': 'Identifier wajib diisi.', 'required': 'Identifier wajib diisi.'}
@@ -365,6 +444,11 @@ class LoginSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
+        """
+        Resolve identifier to a user, then check password manually.
+        Does not use Django's authenticate() because we need to look up
+        by NIS/NUPTK first (not just username).
+        """
         identifier = data.get('identifier', '').strip()
         password = data.get('password')
 
@@ -408,9 +492,17 @@ class MataPelajaranGuruSemesterSerializer(serializers.ModelSerializer):
 
 class PenggunaSerializer(serializers.ModelSerializer):
     """
-    Comprehensive user serializer used for transmitting authorized profile details.
-    Includes dynamically computed academic year and semester fields.
-    Exposes `updated_at` as an OCC version token for frontend concurrency control.
+    Full user serializer for profile detail (used in GET /akun/me/).
+
+    Extra fields:
+        - tahun_ajaran: computed from current date (Jul-Dec = Ganjil, Jan-Jun = Genap).
+        - semester: computed alongside tahun_ajaran.
+        - riwayat_mengajar: nested serializer from MataPelajaranGuruSemester.
+        - updated_at: exposed as an OCC version token for the frontend.
+
+    Optimization:
+        tahun_ajaran and semester are cached in __init__ so they don't get
+        recomputed per-object when serializing a list.
     """
     tahun_ajaran = serializers.SerializerMethodField()
     semester = serializers.SerializerMethodField()
@@ -438,7 +530,11 @@ class PenggunaSerializer(serializers.ModelSerializer):
 
 
 class PenggunaListSerializer(serializers.ModelSerializer):
-    """Lean serializer for admin list view — no computed fields. Exposes `updated_at` for OCC tokens."""
+    """
+    Lightweight serializer for the admin account list view (Manajemen Akun).
+    No computed fields (tahun_ajaran, semester) for faster performance.
+    Still exposes updated_at for OCC tokens.
+    """
     riwayat_mengajar = MataPelajaranGuruSemesterSerializer(many=True, read_only=True)
 
     class Meta:
@@ -451,8 +547,17 @@ class PenggunaListSerializer(serializers.ModelSerializer):
 
 class EditProfilSerializer(serializers.Serializer):
     """
-    Validates profile update payloads based on the user's current role.
-    Siswa must provide 'kelas', while Guru must provide 'mata_pelajaran'.
+    Handles self-service profile edits (PUT /akun/me/edit/).
+
+    Validation by role:
+        - Siswa must provide the `kelas` field (dropdown).
+        - Guru must provide `riwayat_mengajar` (list of subjects + classes).
+        - Guru BK / Kemahasiswaan cannot edit profiles through this endpoint.
+
+    update() handles:
+        - Siswa: updates kelas only.
+        - Guru: wipes & replaces MataPelajaranGuruSemester for the current semester,
+          syncs the legacy mata_pelajaran field.
     """
     kelas = serializers.ChoiceField(
         choices=Pengguna.KELAS_CHOICES, required=False, allow_null=True
@@ -524,8 +629,16 @@ class EditProfilSerializer(serializers.Serializer):
 
 class UbahPasswordSerializer(serializers.Serializer):
     """
-    Validates authenticated password change requests.
-    Enforces previous password verification and alphanumeric strength requirements.
+    Handles password change from the profile page (PUT /akun/me/password/).
+
+    Key differences from ResetPasswordSerializer:
+        - User is already logged in (request.user available in context).
+        - Must verify the old password first.
+        - Does not use token/uid (that's for forgot-password).
+
+    Validation:
+        - password_lama must match the current hash in the database.
+        - password_baru must be at least 8 chars with mixed letters + numbers.
     """
     password_lama = serializers.CharField(
         write_only=True,
@@ -573,8 +686,21 @@ def mask_email(email):
 
 class ForgotPasswordSerializer(serializers.Serializer):
     """
-    Validates NIS lookup during password recovery requests.
-    Triggers an asynchronous SMTP email dispatch containing a time-sensitive reset token.
+    Handles the forgot-password flow for Siswa (POST /akun/forgot-password/).
+
+    Full flow:
+        1. Frontend sends NIS.
+        2. validate_nis() looks up a siswa user with that NIS.
+        3. Checks that the user has an email (reject if not).
+        4. save() generates a reset token via Django's default_token_generator.
+        5. Builds the reset link: {FRONTEND_URL}/reset-password/{uid}/{token}
+        6. Sends a branded HTML email via threading (non-blocking).
+        7. Returns a masked email (j***[REDACTED EMAIL]) for the frontend to display.
+
+    Security:
+        - Rate limiting is handled in the VIEW (ForgotPasswordView), not here.
+        - Token is valid for 1 hour (PASSWORD_RESET_TIMEOUT in settings.py).
+        - Token is single-use — once consumed, it's automatically invalidated.
     """
     nis = serializers.CharField()
 
@@ -764,9 +890,11 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 class ForgotPasswordGuruSerializer(serializers.Serializer):
     """
-    Validates NUPTK lookup during password recovery requests for Guru (Teacher) accounts.
-    Triggers an asynchronous SMTP email dispatch containing a time-sensitive reset token.
-    Reuses the same branded email template as the Siswa forgot-password flow.
+    Handles the forgot-password flow for Guru (POST /akun/forgot-password-guru/).
+
+    Identical to ForgotPasswordSerializer, but looks up by NUPTK (16 digits).
+    Separated because the input field and lookup query differ (nis vs nuptk).
+    The email template sent is identical — same design system.
     """
     nuptk = serializers.CharField()
 
@@ -881,8 +1009,19 @@ class ForgotPasswordGuruSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     """
-    Validates password reset token execution.
-    Consumes the UID and Token payloads sent via email to forcibly overwrite the forgotten password.
+    Handles password reset execution (POST /akun/reset-password/).
+
+    Used after the user clicks the link in the forgot-password email.
+    Frontend extracts uid and token from the URL and sends them with the new password.
+
+    validate() flow:
+        1. Check password == konfirmasi_password.
+        2. Decode uid -> look up the user in the database.
+        3. Verify the token is still valid (not expired, not already used).
+        4. Store user on self.user for use in save().
+
+    save():
+        Sets the new password via set_password() (auto-hashes), then saves.
     """
     uid = serializers.CharField()
     token = serializers.CharField()

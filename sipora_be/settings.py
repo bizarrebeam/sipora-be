@@ -1,10 +1,3 @@
-"""
-Master Configuration File for the SIPORA Backend.
-
-This module houses all deployment environments, installed applications, middleware stacks,
-database connectors, security policies (CORS/CSRF), and third-party integrations (SimpleJWT, SMTP).
-"""
-
 from pathlib import Path
 import os
 from dotenv import load_dotenv

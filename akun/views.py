@@ -59,7 +59,6 @@ class SeedDatabaseView(APIView):
             })
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-            
 
 
 class RegisterSiswaView(APIView):
@@ -188,7 +187,7 @@ class CookieTokenRefreshView(APIView):
                 if getattr(settings.SIMPLE_JWT, 'BLACKLIST_AFTER_ROTATION', False):
                     try:
                         token.blacklist()
-                    except:
+                    except Exception:
                         pass
             else:
                 new_refresh_token = refresh_token
@@ -707,7 +706,12 @@ class AdminResetPasswordBKView(APIView):
             return Response({"detail": "Guru BK tidak ditemukan."}, status=404)
 
         # Reset to the base password from environment
-        base_password = os.getenv('SEED_PASSWORD_BK', '[REDACTED]')
+        base_password = os.getenv('SEED_PASSWORD_BK')
+        if not base_password:
+            return Response(
+                {"detail": "Konfigurasi password default belum diatur. Hubungi administrator sistem."},
+                status=500
+            )
         guru_bk.set_password(base_password)
         guru_bk.save()
 

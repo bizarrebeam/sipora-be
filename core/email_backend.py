@@ -9,8 +9,18 @@ logger = logging.getLogger(__name__)
 
 class VercelProxyEmailBackend(BaseEmailBackend):
     """
-    A custom email backend that proxies email requests to a Serverless Function.
-    Used for centralized email dispatching through HTTP.
+    Custom email backend that proxies Django's send_mail calls to a Vercel Serverless Function.
+
+    Architecture:
+        Django Backend (Railway) -> HTTP POST -> Vercel /api/send-email -> Nodemailer -> SMTP
+
+    This indirection is necessary because Railway's outbound SMTP connections can be
+    unreliable. The Vercel function acts as a stable relay, authenticated via the
+    VERCEL_EMAIL_SECRET shared secret.
+
+    Required environment variables:
+        - FRONTEND_URL: Base URL of the frontend (used to construct the proxy URL).
+        - VERCEL_EMAIL_SECRET: Shared secret for authenticating proxy requests.
     """
     def send_messages(self, email_messages):
         if not email_messages:
