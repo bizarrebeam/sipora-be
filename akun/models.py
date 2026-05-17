@@ -1,30 +1,20 @@
 """
 Models for the Account (Akun) Application.
 
-This module defines the custom user model and its managers used across the SIPORA platform,
-featuring role-based access control (RBAC), soft-delete capabilities, and verification tracking.
+This module defines the custom user model used across the SIPORA platform,
+featuring role-based access control (RBAC), verification tracking, and
+Optimistic Concurrency Control (OCC) via the `updated_at` field.
 """
 
 import uuid
-from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.conf import settings
-from django.utils import timezone
 from datetime import date
-
-class ActiveUserManager(UserManager):
-    """
-    Custom manager that filters out soft-deleted users.
-    Returns only currently active users by default.
-    """
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
-
 
 class Pengguna(AbstractUser):
     """
     Custom User model representing all authentication entities (Siswa, Kemahasiswaan, Guru, Guru BK) in the system.
-    Extends Django's AbstractUser to include domain-specific fields and soft-deletion metadata.
+    Extends Django's AbstractUser to include domain-specific fields, verification tracking, and OCC metadata.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ROLE_CHOICES = [
@@ -48,42 +38,7 @@ class Pengguna(AbstractUser):
     mata_pelajaran = models.CharField(max_length=255, null=True, blank=True)
     is_verified = models.BooleanField(default=False, db_index=True)
 
-    # Concurrency & Audit Metadata
     updated_at = models.DateTimeField(auto_now=True)
-
-    # Soft Delete Metadata
-    is_deleted = models.BooleanField(default=False, db_index=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    deleted_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        null=True, 
-        blank=True, 
-        on_delete=models.SET_NULL, 
-        related_name='+'
-    )
-
-    objects = ActiveUserManager()
-    all_objects = UserManager()
-
-    def soft_delete(self, user=None):
-        """
-        Performs a logical deletion of the user account.
-        Deactivates the user and records the deletion timestamp and the executing administrator.
-        
-        Args:
-            user: The User instance performing the deletion.
-        """
-        self.is_active = False
-        self.is_deleted = True
-        self.deleted_at = timezone.now()
-        self.deleted_by = user
-        self.save()
-
-    def delete(self, *args, **kwargs):
-        """
-        Overrides the default Django delete method to enforce soft-deletion instead of hard database removal.
-        """
-        self.soft_delete()
 
     def __str__(self):
         return f"{self.username} - {self.role}"
@@ -122,9 +77,9 @@ class MataPelajaranGuruSemester(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     guru = models.ForeignKey(Pengguna, on_delete=models.CASCADE, related_name='riwayat_mengajar', db_index=True)
     nama_mata_pelajaran = models.CharField(max_length=255)
-    kelas_diajar = models.JSONField(default=list)  # ["7A", "9A", "9B"]
-    tahun_ajaran = models.CharField(max_length=9, db_index=True)  # ex: "2025/2026"
-    semester = models.CharField(max_length=6, db_index=True)  # "Ganjil" or "Genap"
+    kelas_diajar = models.JSONField(default=list)
+    tahun_ajaran = models.CharField(max_length=9, db_index=True)
+    semester = models.CharField(max_length=6, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -132,4 +87,4 @@ class MataPelajaranGuruSemester(models.Model):
         ordering = ['-tahun_ajaran', '-semester', 'nama_mata_pelajaran']
 
     def __str__(self):
-        return f"{self.guru.username} - {self.nama_mata_pelajaran} ({self.semester} {self.tahun_ajaran})"
+        return f"{self.guru.username} - {self.nama_mata_pelajaran} ({self.semester} {self.tahun_ajaran})"
