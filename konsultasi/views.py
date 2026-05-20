@@ -62,9 +62,9 @@ class JadwalKonsultasiListCreateView(APIView):
     @role_required('guru_bk', 'siswa')
     def get(self, request):
         if request.user.role == 'guru_bk':
-            jadwal_qs = JadwalKonsultasi.objects.filter(guru_bk=request.user).select_related('booking__siswa')
+            jadwal_qs = JadwalKonsultasi.objects.filter(guru_bk=request.user).prefetch_related('booking_set__siswa')
         else:
-            jadwal_qs = JadwalKonsultasi.objects.filter(status='tersedia').select_related('booking__siswa')
+            jadwal_qs = JadwalKonsultasi.objects.filter(status='tersedia').prefetch_related('booking_set__siswa')
 
         tanggal = request.query_params.get('tanggal')
         if tanggal:
@@ -390,6 +390,12 @@ class KonfirmasiBookingView(APIView):
                         {"error": "Alasan penolakan wajib diisi saat menolak booking."},
                         status=400
                     )
+                
+                if len(alasan) < 20 or len(alasan) > 150:
+                    return Response(
+                        {"error": "Alasan penolakan harus 20 - 150 karakter."},
+                        status=400
+                    )
 
                 booking.status = 'ditolak'
                 booking.alasan_penolakan = alasan
@@ -444,6 +450,12 @@ class BatalkanBookingView(APIView):
         if not alasan:
             return Response(
                 {"error": "Alasan pembatalan wajib diisi."},
+                status=400
+            )
+
+        if len(alasan) < 20 or len(alasan) > 150:
+            return Response(
+                {"error": "Alasan pembatalan harus 20 - 150 karakter."},
                 status=400
             )
 
@@ -688,9 +700,9 @@ class SelesaiBookingView(APIView):
                 status=400
             )
 
-        if len(catatan_hasil) < 10:
+        if len(catatan_hasil) < 10 or len(catatan_hasil) > 500:
             return Response(
-                {"error": "Catatan hasil konsultasi minimal 10 karakter."},
+                {"error": "Catatan hasil konsultasi harus berukuran antara 10 sampai 500 karakter."},
                 status=400
             )
 

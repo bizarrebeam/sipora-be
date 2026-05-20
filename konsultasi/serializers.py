@@ -58,7 +58,10 @@ class JadwalKonsultasiSerializer(serializers.ModelSerializer):
         Returns:
             bool: True jika sudah dipesan (is_booked), False jika masih tersedia
         """
-        return obj.is_booked()
+        # return obj.is_booked()
+        return obj.booking_set.filter(
+            status__in=['menunggu_konfirmasi', 'dikonfirmasi']
+        ).exists()
 
     def get_nama_guru_bk(self, obj):
         """
@@ -92,6 +95,11 @@ class JadwalKonsultasiSerializer(serializers.ModelSerializer):
         if value > date.today() + timedelta(days=30):
             raise serializers.ValidationError(
                 "Jadwal hanya bisa dibuat maksimal 1 bulan (30 hari) ke depan."
+            )
+            
+        if value.weekday() == 6:
+            raise serializers.ValidationError(
+                "Jadwal tidak bisa dibuat pada hari Minggu."
             )
             
         return value
@@ -224,39 +232,28 @@ class JadwalKonsultasiListSerializer(serializers.ModelSerializer):
             'kelas_siswa_booking',
         ]
 
+    def _get_active_booking(self, obj):
+        """Helper: ambil booking aktif untuk slot ini (menunggu/dikonfirmasi)."""
+        return obj.booking_set.filter(
+            status__in=['menunggu_konfirmasi', 'dikonfirmasi']
+        ).select_related('siswa').first()
+
     def get_is_booked(self, obj):
-        """Cek apakah slot sudah dipesan oleh siswa."""
-        return obj.is_booked()
+        return self._get_active_booking(obj) is not None
+
+    def get_nama_siswa_booking(self, obj):
+        booking = self._get_active_booking(obj)
+        if not booking:
+            return None
+        return getattr(booking.siswa, 'nama_lengkap', str(booking.siswa))
 
     def get_nama_guru_bk(self, obj):
         """Ambil nama lengkap Guru BK dari relasi."""
         return getattr(obj.guru_bk, 'nama_lengkap', str(obj.guru_bk))
 
-    def get_nama_siswa_booking(self, obj):
-        """
-        Ambil nama siswa yang booking untuk slot ini.
-        
-        Returns:
-            str: Nama siswa jika ada booking, None jika belum ada booking
-        """
-        if not hasattr(obj, 'booking'):
-            return None
-        booking = obj.booking
-        if not booking.siswa_id:
-            return None
-        return getattr(booking.siswa, 'nama_lengkap', str(booking.siswa))
-
     def get_kelas_siswa_booking(self, obj):
-        """
-        Ambil kelas siswa yang booking untuk slot ini.
-        
-        Returns:
-            str: Kelas siswa jika ada booking, None jika belum ada booking
-        """
-        if not hasattr(obj, 'booking'):
-            return None
-        booking = obj.booking
-        if not booking.siswa_id:
+        booking = self._get_active_booking(obj)
+        if not booking:
             return None
         return getattr(booking.siswa, 'kelas', None)
 
@@ -434,6 +431,9 @@ class BookingKonsultasiListSerializer(serializers.ModelSerializer):
     # Field tambahan: nama siswa dari relasi
     nama_siswa = serializers.SerializerMethodField()
     
+    # Field tambahan: kelas siswa dari relasi
+    kelas_siswa = serializers.SerializerMethodField()
+    
     # Field tambahan: tanggal konsultasi dari relasi jadwal
     tanggal_konsultasi = serializers.SerializerMethodField()
     
@@ -448,12 +448,15 @@ class BookingKonsultasiListSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'nama_siswa',
+            'kelas_siswa',
             'jadwal',
             'tanggal_konsultasi',
             'waktu_mulai',
             'waktu_selesai',
             'deskripsi',
             'status',
+            'alasan_penolakan',
+            'alasan_pembatalan',
             'dibuat_pada',
             'updated_at',
             'catatan_hasil', 
@@ -462,6 +465,10 @@ class BookingKonsultasiListSerializer(serializers.ModelSerializer):
     def get_nama_siswa(self, obj):
         """Ambil nama lengkap siswa dari relasi."""
         return getattr(obj.siswa, 'nama_lengkap', str(obj.siswa))
+
+    def get_kelas_siswa(self, obj):
+        """Ambil kelas siswa dari relasi."""
+        return getattr(obj.siswa, 'kelas', None)
 
     def get_tanggal_konsultasi(self, obj):
         """Ambil tanggal konsultasi dari relasi jadwal."""
@@ -493,6 +500,9 @@ class BookingKonsultasiDetailSerializer(serializers.ModelSerializer):
     # Field tambahan: nama siswa dari relasi
     nama_siswa = serializers.SerializerMethodField()
     
+    # Field tambahan: kelas siswa dari relasi
+    kelas_siswa = serializers.SerializerMethodField()
+    
     # Field nested: serializer lengkap untuk jadwal (untuk informasi detail)
     jadwal_detail = JadwalKonsultasiSerializer(source='jadwal', read_only=True)
 
@@ -501,6 +511,7 @@ class BookingKonsultasiDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'nama_siswa',
+            'kelas_siswa',
             'jadwal',
             'jadwal_detail',
             'deskripsi',
@@ -515,3 +526,7 @@ class BookingKonsultasiDetailSerializer(serializers.ModelSerializer):
     def get_nama_siswa(self, obj):
         """Ambil nama lengkap siswa dari relasi."""
         return getattr(obj.siswa, 'nama_lengkap', str(obj.siswa))
+
+    def get_kelas_siswa(self, obj):
+        """Ambil kelas siswa dari relasi."""
+        return getattr(obj.siswa, 'kelas', None)

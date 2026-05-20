@@ -9,7 +9,6 @@ Covers:
 import uuid
 from django.db import models
 from django.conf import settings
-from django.utils import timezone
 
 
 class JadwalKonsultasi(models.Model):
@@ -108,7 +107,9 @@ class JadwalKonsultasi(models.Model):
         Returns:
             bool: True jika slot sudah dipesan (status != 'tersedia'), False jika masih tersedia
         """
-        return self.status != 'tersedia'
+        return self.booking_set.filter(
+            status__in=['menunggu_konfirmasi', 'dikonfirmasi']
+        ).exists()
 
 
 class BookingKonsultasi(models.Model):
@@ -157,13 +158,10 @@ class BookingKonsultasi(models.Model):
     )
 
     # Referensi ke JadwalKonsultasi yang dipesan (OneToOne: satu slot = satu booking)
-    jadwal = models.OneToOneField(
+    jadwal = models.ForeignKey(
         JadwalKonsultasi,
         on_delete=models.CASCADE,
-        related_name='booking',
-        error_messages={
-            'unique': 'Maaf, jadwal ini sudah tidak tersedia'
-        }
+        related_name='booking_set', 
     )
 
     # Deskripsi alasan mengapa siswa ingin berkonsultasi
@@ -202,6 +200,14 @@ class BookingKonsultasi(models.Model):
         ordering = ['-dibuat_pada']
         verbose_name = 'Booking Konsultasi'
         verbose_name_plural = 'Booking Konsultasi'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['jadwal'],
+                condition=models.Q(status__in=['menunggu_konfirmasi', 'dikonfirmasi']),
+                name='unique_active_booking_per_jadwal',
+                violation_error_message='Maaf, jadwal ini sudah tidak tersedia karena telah dipesan oleh siswa lain.',
+            )
+        ]
 
     def __str__(self):
         """
