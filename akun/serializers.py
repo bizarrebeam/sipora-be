@@ -531,18 +531,33 @@ class PenggunaSerializer(serializers.ModelSerializer):
 
 class PenggunaListSerializer(serializers.ModelSerializer):
     """
-    Lightweight serializer for the admin account list view (Manajemen Akun).
-    No computed fields (tahun_ajaran, semester) for faster performance.
+    Serializer for the admin account list view (Manajemen Akun).
+    Includes tahun_ajaran and semester so the admin edit form can 
+    filter riwayat_mengajar for the current semester.
     Still exposes updated_at for OCC tokens.
     """
+    tahun_ajaran = serializers.SerializerMethodField()
+    semester = serializers.SerializerMethodField()
     riwayat_mengajar = MataPelajaranGuruSemesterSerializer(many=True, read_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tahun_ajaran_cache = get_tahun_ajaran()
+        self._semester_cache = get_semester()
 
     class Meta:
         model = Pengguna
         fields = (
             'id', 'username', 'nis', 'nuptk', 'nama_lengkap', 'email',
-            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined', 'updated_at', 'riwayat_mengajar'
+            'role', 'kelas', 'mata_pelajaran', 'is_verified', 'date_joined', 'updated_at',
+            'tahun_ajaran', 'semester', 'riwayat_mengajar'
         )
+
+    def get_tahun_ajaran(self, obj):
+        return self._tahun_ajaran_cache
+
+    def get_semester(self, obj):
+        return self._semester_cache
 
 
 class EditProfilSerializer(serializers.Serializer):

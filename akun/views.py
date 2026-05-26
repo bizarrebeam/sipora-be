@@ -406,7 +406,10 @@ class ResetPasswordView(APIView):
                 modul='akun',
                 ip_address=ip
             )
-            return Response({"message": "Password berhasil diubah. Silakan login dengan password baru."})
+            return Response({
+                "message": "Password berhasil diubah. Silakan login dengan password baru.",
+                "role": user.role,
+            })
             
         # Increment failed attempt
         ip_data['attempts'] += 1
