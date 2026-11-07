@@ -113,6 +113,19 @@ GitHub.sublime-settings
 # Account seeding file containing credentials
 akun/management/commands/seed_users.py
 sipora-be/akun/management/commands/seed_users.py
+# Environment files
+.env*
+!.env.example
 
-# Ignore README for Dev Branch
-README.md
+# AI and local editor files
+.claude/
+.codex/
+.cursor/
+.serena/
+.agents/
+.mcp.json
+AGENTS.md
+CLAUDE.md
+copilot-instructions.md
+.idea/
+.vscode/

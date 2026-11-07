@@ -1,138 +1,57 @@
-Kadek Savitri (2306203236)
-Kelompok Propenat (C2H5COOH) Kelas B 
+# SIPORA
 
-SIPORA (Sistem Pelaporan & Aspirasi)
-Sistem ini dikembangkan untuk membantu sekolah dalam mengelola laporan kerusakan fasilitas, aspirasi siswa dan guru, serta monitoring laporan melalui dashboard. Sistem menggunakan UUID sebagai ID utama dan mendukung beberapa role: Siswa, Guru, Pelapor, dan Kemahasiswaan.
+SIPORA (Sistem Pelaporan dan Aspirasi) is a school reporting web application for SMP Budi Mulia Desa Putera. It turns stakeholder needs into confidential case management for bullying reports, facility issues, counseling requests, aspirations, and teacher evaluations.
 
-1. FITUR YANG DIKERJAKAN
+Role-based access rules protect reporter identities and let counselors and school administrators handle submitted cases.
 
-MENGELOLA LAPORAN KERUSAKAN FASILITAS SEKOLAH
+## Application features
 
-1.1 Mengedit Laporan Kerusakan (PBI - 17)
-    Tujuan:
-    Pelapor  dapat memperbarui laporan yang telah dibuat jika ada kesalahan atau tambahan informasi.
-    Endpoint: PUT /api/laporan-kerusakan/{id}
+- Case forms and status tracking for bullying and facility reports.
+- Counseling requests, student aspirations, and teacher evaluations.
+- Access rules for reporters, teachers, counselors, and school administrators.
+- REST APIs (web endpoints) for case submission, review, status updates, and responses.
+- An audit trail that records case creation, edits, status changes, and soft deletes. Each entry stores its time, user identifier, and previous values.
 
-    Aturan Backend: 
-    Hanya pembuat laporan yang dapat mengedit laporannya sendiri. Laporan hanya bisa diedit jika status “Menunggu Konfirmasi”.
+A soft delete hides a record while keeping its history. The audit trail supports case review throughout the reporting process.
 
-    Ketentuan Frontend:
+## Application structure
 
-    Form edit menampilkan data lama yang sudah tersimpan. Tombol “Ubah Laporan” aktif jika semua field valid. Setelah berhasil, muncul pesan sukses dan redirect ke halaman detail.
+SIPORA has two web applications. The frontend provides pages for students and staff. The backend provides the API and stores application data in PostgreSQL.
 
-1.2 Membatalakn Laporan Kerusakan (PBI - 18)
-    Tujuan: 
-    Pelapor dapat membatalkan laporan yang sudah ia sampaikan sebelumnya agar tidak diproses lebih lanjut oleh kemahasiswaan.
-    Aturan Backend: 
-    Hanya pembuat laporan yang dapat mengedit laporannya sendiri. Laporan hanya bisa dibatalkan jika status “Menunggu Konfirmasi”.
-    Terdapat tombol "Batalkan" pada halaman detail laporan. Setlah berhasil maka akan munucl pesan sukses dan kembali ke halaman kerusakan laporan. 
+| Component | Repository | Technology | Deployment |
+| --- | --- | --- | --- |
+| Frontend | [sipora-fe](https://github.com/bizarrebeam/sipora-fe) | Vue 3, TypeScript, Vite, and Pinia | [Open SIPORA](https://sipora-fe.vercel.app) |
+| Backend | [sipora-be](https://github.com/bizarrebeam/sipora-be) | Python, Django REST Framework, and PostgreSQL | Railway deployment history |
 
-2. MENGELOLA ASPIRASI
+The frontend calls the backend API. Each repository can deploy on its own. The frontend is available at [sipora-fe.vercel.app](https://sipora-fe.vercel.app). The saved Railway backend URL is [web-production-150eb.up.railway.app](https://web-production-150eb.up.railway.app). It returned 404 for the tested API paths on 7 November 2026. GitHub keeps deployment records for the [frontend](https://github.com/bizarrebeam/sipora-fe/deployments) and [backend](https://github.com/bizarrebeam/sipora-be/deployments).
 
-2.1 Membuat Aspirasi (PBI-26)
+The backend validates requests, applies access rules, manages case status, and records activity. It uses Django REST Framework and PostgreSQL.
 
-    Tujuan:
-    Pelapor dapat menyampaikan pendapat, masukan, dan saran kepada pihak sekolah.
+## Local setup
 
-    Endpoint:
-    POST /api/aspirasi
+You need Python 3.12 and a local PostgreSQL database.
 
-    Aturan Backend: ID menggunakan UUID. Hanya siswa dan guru yang dapat membuat aspirasi. Mengembalikan status 200 jika berhasil.
+1. Copy `.env.example` to `.env`.
+2. Set local values in `.env`. Do not use production credentials.
+3. Create a Python virtual environment and install `requirements.txt`.
+4. Run `python manage.py migrate`.
+5. Run `python manage.py runserver`.
 
-    Ketentuan Frontend:
-    Form input lengkap dengan field wajib. Tombol “Kirim Aspirasi” aktif jika field wajib terisi. Setelah berhasil, redirect ke halaman detail atau riwayat aspirasi.
+The saved Railway backend URL is [web-production-150eb.up.railway.app](https://web-production-150eb.up.railway.app). It returned 404 for the tested API paths on 7 November 2026. Its deployment records are on the [GitHub deployments page](https://github.com/bizarrebeam/sipora-be/deployments).
 
-2.2 Mengedit Aspirasi (PBI-27)
-    Tujuan:
-    Pelapor dapat memperbaiki atau melengkapi aspirasi yang telah diajukan.
 
-    Endpoint:
-    PUT /api/aspirasi/{id}
+## Course and contributors
 
-    Aturan Backend:
-    Hanya pemilik aspirasi yang dapat mengedit. Mengembalikan status 200 jika berhasil.
+Developed to fulfill the Proyek Pengembangan Sistem Informasi course at Universitas Indonesia in 2026.
 
-    Ketentuan Frontend:
-    Form edit terisi otomatis dengan data lama. Tombol “Simpan Perubahan” aktif jika ada perubahan dan data valid Menampilkan pesan sukses setelah berhasil.
+| Name | NPM | Affiliation |
+| --- | --- | --- |
+| Adelya Amanda | 2306165616 | Information Systems, Universitas Indonesia |
+| Joanne Kenisa Adelina Limena | 2306275626 | Information Systems, Universitas Indonesia |
+| Rizki Hidayatul Laeli | 2306245491 | Information Systems, Universitas Indonesia |
+| Kadek Savitri | 2306203236 | Information Systems, Universitas Indonesia |
+| Theresia Tarianingsih | 2306208810 | Information Systems, Universitas Indonesia |
+## Project documents
 
-2.3 Menandai Aspirasi (PBI-28)
-    Tujuan:
-    Kemahasiswaan dapat menandai aspirasi yang menarik untuk dipertimbangkan.
-
-    Endpoint:
-    GET /api/aspirasi/{id}
-
-    Aturan Backend:
-    Mengembalikan status 200 jika berhasil ditandai.
-
-    Ketentuan Frontend:
-    Tersedia toggle “Ditandai”. Menampilkan pesan sukses setelah toggle diaktifkan.
-
-2.4 Melihat Riwayat Aspirasi Pribadi (PBI-29)
-    Tujuan: 
-    Pelapor dapat melihat seluruh aspirasi yang telah dibuatnya sebelumnya. 
-
-    Aturan Backend: 
-    Hanya role siswa/guru yang dapat melihat aspirasi tersebut. 
-
-    Ketentuan Frontend: 
-    Menampilkan keseluruhan aspirasi yang pernah di buat sebelumnya dalam bentuk cards yang memberikan informasi mengenai judul, tanggal, dan kategorinya. 
-
-2.5 Melihat Daftar Aspirasi (PBI-30)
-
-    Tujuan:
-    Kemahasiswaan dapat melihat seluruh aspirasi.
-    Pelapor dapat melihat aspirasi miliknya sendiri.
-
-    Endpoint:
-    GET /api/aspirasi
-
-    Aturan Backend:
-    Role kemahasiswaan melihat seluruh data. Role pelapor hanya melihat data miliknya.
-
-    Ketentuan Frontend:
-    Tampilan tabel untuk kemahasiswaan.Tampilan card/list untuk pelapor. Terdapat search bar berdasarkan kata kunci. Terdapat filter kategori.  Terdapat pagination jika data banyak. Data diurutkan berdasarkan tanggal terbaru. Jika kosong, menampilkan pesan “belum ada aspirasi yang tersedia”.
-
-2.6 Melihat Detail Aspirasi (PBI-31)
-
-    Tujuan:
-    Pengguna (guru, siswa, dan kemahasiswaan) dapat melihat rincian detail dari aspirasi yang diajukan
-
-    Endpoint:
-    GET /api/aspirasi
-
-    Aturan Backend:
-    Guru dan siswa hanya dapat melihat detail dari laporan yang telah diajukan sebelumnya. Kemahasiswaan dapat melihat detail dari seluruh apsirasi yang ada dalam sistem. 
-
-    Ketentuan Frontend:
-    Tampilan rincian detail dari aspirasi tersebut. Kemahasiswaan dapat mempertimbangkan laporan dengan menandari laporan aspirasi di halam detail tersebut.
-
-3. DASHBOARD MONITORING SEKOLAH
-
-3.1 Dashboard Rekap Konsultasi (PBI-28)
-
-    Tujuan:
-    Kemahasiswaan dapat memantau seluruh laporan secara terpusat dalam periode tertentu.
-
-    Endpoint:
-    GET /api/dashboard-konsultasi
-
-    Fitur Backend:
-    Mendukung filter rentang waktu. Mengembalikan total laporan. Mengembalikan jumlah laporan berdasarkan status. Mengembalikan statistik harian.
-
-    Ketentuan Frontend:
-    Ringkasan dalam bentuk cards. Pie chart berdasarkan status konsultasi. Bar chart distribusi per periode. Filter tanggal (mingguan/bulanan). Default: ringkasan bulanan dan chart tahunan.
-
-3.2 Dashboard Rekap Pelaporan dan Aspirasi (PBI-29)
-
-    Tujuan:
-    Kemahasiswaan dapat memantau jumlah, status, dan perkembangan laporan serta aspirasi secara keseluruhan.
-
-    Endpoint: GET /api/dashboard-konsultasi
-
-    Fitur Backend:
-    Mendukung filter ascending dan descending. Mengembalikan total laporan Mengembalikan jumlah berdasarkan status. Mengembalikan statistik kategori terbanyak.
-
-    Ketentuan Frontend:
-    Cards berdasarkan status laporan. Pie chart aspirasi per kategori. Bar chart distribusi laporan berdasarkan kategori. Statistik aspirasi per periode. Filter periode waktu.Default tampilan bulanan dan tahunan.
-
+- [Product requirements document](docs/PRD_SIPORA.pdf)
+- [Pitch deck](docs/SIPORA_Pitch_Deck.pdf)

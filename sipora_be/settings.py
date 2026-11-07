@@ -203,7 +203,7 @@ SIMPLE_JWT = {
 # ─── Email Configuration (SMTP Proxy) ───────────────────────────────────────────
 EMAIL_USE_CONSOLE_BACKEND = os.getenv('EMAIL_USE_CONSOLE_BACKEND', 'False').lower() == 'true'
 
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '[REDACTED]')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
 if EMAIL_USE_CONSOLE_BACKEND:

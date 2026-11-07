@@ -243,7 +243,7 @@ def generate_report_pdf(
         STATUS : TERAKREDITASI "A"<br/>
         NPSN : 20106947 &nbsp;&nbsp;&nbsp; NPYP : AH9883<br/>
         Jalan Desa Putera, Srengseng Sawah, Jagakarsa, Jakarta Selatan - 12640 Telp. (021)-7867202<br/>
-        e-mail : [REDACTED EMAIL] website : https://www.smpdesaputera.com</font>
+        e-mail : Hubungi administrasi sekolah website : https://www.smpdesaputera.com</font>
         """
         
         # Create a table for the header to handle centering properly within margins
