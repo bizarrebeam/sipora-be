@@ -54,4 +54,4 @@ Developed to fulfill the Proyek Pengembangan Sistem Informasi course at Universi
 ## Project documents
 
 - [Product requirements document](docs/PRD_SIPORA.pdf)
-- [Pitch deck](docs/SIPORA_Pitch_Deck.pdf)
+- [Pitch deck](docs/Pitch%20Deck_SIPORA.pdf)
